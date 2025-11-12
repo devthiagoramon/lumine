@@ -12,6 +12,8 @@ import ClientDashboard from './pages/ClientDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import Forum from './pages/Forum'
 import EmotionDiary from './pages/EmotionDiary'
+import Payments from './pages/Payments'
+import FinancialHistory from './pages/FinancialHistory'
 import './App.css'
 
 function App() {
@@ -32,6 +34,8 @@ function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/forum" element={<Forum />} />
             <Route path="/diario" element={<EmotionDiary />} />
+            <Route path="/pagamentos" element={<Payments />} />
+            <Route path="/historico-financeiro" element={<FinancialHistory />} />
           </Routes>
         </div>
       </Router>

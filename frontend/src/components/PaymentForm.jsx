@@ -124,12 +124,15 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
         </div>
       )}
 
-      <div className="bg-primary-50 border border-primary-200 rounded-lg p-4 mb-4">
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <p className="text-sm text-gray-700 mb-1">
-          <span className="font-medium">Valor:</span> R$ {appointment.psychologist.consultation_price?.toFixed(2) || '0.00'}
+          <span className="font-medium">Valor:</span> R$ {appointment.psychologist?.consultation_price?.toFixed(2) || '0.00'}
+        </p>
+        <p className="text-sm text-gray-700 mb-1">
+          <span className="font-medium">Psicólogo:</span> {appointment.psychologist?.user?.full_name || 'N/A'}
         </p>
         <p className="text-sm text-gray-700">
-          <span className="font-medium">Psicólogo:</span> {appointment.psychologist.user.full_name}
+          <span className="font-medium">Data:</span> {new Date(appointment.appointment_date).toLocaleString('pt-BR')}
         </p>
       </div>
 

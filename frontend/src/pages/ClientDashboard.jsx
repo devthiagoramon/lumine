@@ -241,21 +241,36 @@ const ClientDashboard = () => {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        {appointment.payment_status === 'pending' && (
+                        {appointment.status === 'confirmed' && appointment.payment_status === 'pending' && (
                           <button
                             onClick={() => handlePayAppointment(appointment)}
                             className="btn-primary text-sm px-4 py-2 flex items-center justify-center"
                           >
                             <CreditCard className="mr-2" size={16} />
-                            Pagar
+                            Pagar Agora
                           </button>
                         )}
-                        <button
-                          onClick={() => handleCancelAppointment(appointment.id)}
-                          className="btn-secondary text-sm px-4 py-2"
-                        >
-                          Cancelar
-                        </button>
+                        {appointment.status === 'pending' && (
+                          <span className="text-sm text-yellow-600 font-medium px-4 py-2 text-center">
+                            Aguardando confirmação do psicólogo
+                          </span>
+                        )}
+                        {appointment.status === 'rejected' && (
+                          <div className="text-sm text-red-600 px-4 py-2">
+                            <p className="font-medium">Agendamento recusado</p>
+                            {appointment.rejection_reason && (
+                              <p className="text-xs mt-1">{appointment.rejection_reason}</p>
+                            )}
+                          </div>
+                        )}
+                        {appointment.status !== 'rejected' && appointment.status !== 'completed' && (
+                          <button
+                            onClick={() => handleCancelAppointment(appointment.id)}
+                            className="btn-secondary text-sm px-4 py-2"
+                          >
+                            Cancelar
+                          </button>
+                        )}
                       </div>
                         </div>
                       </div>
@@ -401,6 +416,10 @@ const ClientDashboard = () => {
         <div className="card p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Ações Rápidas</h2>
           <div className="flex flex-wrap gap-4">
+            <Link to="/pagamentos" className="btn-secondary flex items-center">
+              <DollarSign className="mr-2" size={18} />
+              Meus Pagamentos
+            </Link>
             <Link to="/buscar" className="btn-primary inline-flex items-center">
               <Search className="mr-2" size={18} />
               Buscar Psicólogos

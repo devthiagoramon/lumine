@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import { Calendar, Star, Users, TrendingUp, Clock, CheckCircle, XCircle, MessageSquare } from 'lucide-react'
+import { Calendar, Star, Users, TrendingUp, Clock, CheckCircle, XCircle, MessageSquare, Wallet } from 'lucide-react'
 
 const PsychologistDashboard = () => {
   const { user, loading: authLoading } = useAuth()
@@ -58,10 +58,40 @@ const PsychologistDashboard = () => {
     }
   }
 
-  const handleUpdateAppointment = async (appointmentId, status) => {
+  const handleConfirmAppointment = async (appointmentId) => {
     try {
-      await axios.put(`/api/appointments/${appointmentId}`, { status })
+      await axios.post(`/api/appointments/${appointmentId}/confirm`)
       fetchData()
+      alert('Agendamento confirmado com sucesso!')
+    } catch (error) {
+      console.error('Erro ao confirmar agendamento:', error)
+      alert(error.response?.data?.detail || 'Erro ao confirmar agendamento')
+    }
+  }
+
+  const handleRejectAppointment = async (appointmentId) => {
+    const reason = window.prompt('Informe o motivo da recusa:')
+    if (!reason || reason.trim() === '') {
+      return
+    }
+    
+    try {
+      await axios.post(`/api/appointments/${appointmentId}/reject`, null, {
+        params: { rejection_reason: reason }
+      })
+      fetchData()
+      alert('Agendamento recusado.')
+    } catch (error) {
+      console.error('Erro ao recusar agendamento:', error)
+      alert(error.response?.data?.detail || 'Erro ao recusar agendamento')
+    }
+  }
+
+  const handleCompleteAppointment = async (appointmentId) => {
+    try {
+      await axios.put(`/api/appointments/${appointmentId}`, { status: 'completed' })
+      fetchData()
+      alert('Agendamento marcado como concluído!')
     } catch (error) {
       console.error('Erro ao atualizar agendamento:', error)
       alert('Erro ao atualizar agendamento')
@@ -219,22 +249,24 @@ const PsychologistDashboard = () => {
                         {appointment.status === 'pending' && (
                           <>
                             <button
-                              onClick={() => handleUpdateAppointment(appointment.id, 'confirmed')}
-                              className="btn-primary text-sm px-4 py-2"
+                              onClick={() => handleConfirmAppointment(appointment.id)}
+                              className="btn-primary text-sm px-4 py-2 flex items-center"
                             >
+                              <CheckCircle className="mr-1" size={16} />
                               Confirmar
                             </button>
                             <button
-                              onClick={() => handleUpdateAppointment(appointment.id, 'cancelled')}
-                              className="btn-secondary text-sm px-4 py-2"
+                              onClick={() => handleRejectAppointment(appointment.id)}
+                              className="btn-secondary text-sm px-4 py-2 flex items-center"
                             >
-                              Cancelar
+                              <XCircle className="mr-1" size={16} />
+                              Recusar
                             </button>
                           </>
                         )}
-                        {appointment.status === 'confirmed' && (
+                        {appointment.status === 'confirmed' && appointment.payment_status === 'paid' && (
                           <button
-                            onClick={() => handleUpdateAppointment(appointment.id, 'completed')}
+                            onClick={() => handleCompleteAppointment(appointment.id)}
                             className="btn-primary text-sm px-4 py-2"
                           >
                             Marcar como Concluído
@@ -295,6 +327,10 @@ const PsychologistDashboard = () => {
         <div className="card p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Ações Rápidas</h2>
           <div className="flex flex-wrap gap-4">
+            <Link to="/historico-financeiro" className="btn-secondary flex items-center">
+              <Wallet className="mr-2" size={18} />
+              Histórico Financeiro
+            </Link>
             <Link to="/dashboard" className="btn-secondary">
               Editar Perfil
             </Link>
