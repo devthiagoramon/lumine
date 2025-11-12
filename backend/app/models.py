@@ -44,11 +44,14 @@ class User(Base):
     psychologist_profile = relationship("Psychologist", back_populates="user", uselist=False)
     favorite_psychologists = relationship("Psychologist", secondary=favorites, backref="favorited_by")
     appointments = relationship("Appointment", foreign_keys="Appointment.user_id")
-    reviews = relationship("Review", foreign_keys="Review.user_id")
+    reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="reviews")
     forum_posts = relationship("ForumPost", foreign_keys="ForumPost.user_id")
     forum_comments = relationship("ForumComment", foreign_keys="ForumComment.user_id")
     emotion_diaries = relationship("EmotionDiary", foreign_keys="EmotionDiary.user_id")
     payments = relationship("Payment", foreign_keys="Payment.user_id")
+    notifications = relationship("Notification", foreign_keys="Notification.user_id")
+    questionnaires = relationship("Questionnaire", foreign_keys="Questionnaire.user_id")
+    pre_registrations = relationship("PsychologistPreRegistration", foreign_keys="PsychologistPreRegistration.user_id")
 
 class Psychologist(Base):
     __tablename__ = "psychologists"
@@ -69,6 +72,7 @@ class Psychologist(Base):
     rating = Column(Float, default=0.0)
     total_reviews = Column(Integer, default=0)
     is_verified = Column(Boolean, default=False)
+    balance = Column(Float, default=0.0)  # Saldo disponível para saque
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     # Relacionamentos
@@ -77,6 +81,8 @@ class Psychologist(Base):
     approaches = relationship("Approach", secondary=psychologist_approaches, back_populates="psychologists")
     reviews = relationship("Review", back_populates="psychologist")
     appointments = relationship("Appointment", foreign_keys="Appointment.psychologist_id")
+    availability = relationship("PsychologistAvailability", foreign_keys="PsychologistAvailability.psychologist_id")
+    withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.psychologist_id")
 
 class Specialty(Base):
     __tablename__ = "specialties"
@@ -107,7 +113,7 @@ class Review(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     psychologist = relationship("Psychologist", back_populates="reviews")
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="user")
 
 class Appointment(Base):
     __tablename__ = "appointments"
@@ -117,7 +123,8 @@ class Appointment(Base):
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
     appointment_date = Column(DateTime(timezone=True), nullable=False)
     appointment_type = Column(String, nullable=False)  # 'online' ou 'presencial'
-    status = Column(String, default='pending')  # 'pending', 'confirmed', 'cancelled', 'completed'
+    status = Column(String, default='pending')  # 'pending', 'confirmed', 'cancelled', 'completed', 'rejected'
+    rejection_reason = Column(Text)  # Motivo da recusa pelo psicólogo
     notes = Column(Text)
     payment_status = Column(String, default='pending')  # 'pending', 'paid', 'failed', 'refunded'
     payment_id = Column(String)  # ID do pagamento mockado
@@ -190,4 +197,97 @@ class Payment(Base):
     
     appointment = relationship("Appointment", foreign_keys=[appointment_id])
     user = relationship("User", foreign_keys=[user_id])
+
+class PsychologistAvailability(Base):
+    __tablename__ = "psychologist_availability"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
+    day_of_week = Column(Integer, nullable=False)  # 0=Segunda, 1=Terça, ..., 6=Domingo
+    start_time = Column(String, nullable=False)  # Formato HH:MM
+    end_time = Column(String, nullable=False)  # Formato HH:MM
+    is_available = Column(Boolean, default=True)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id])
+
+class Notification(Base):
+    __tablename__ = "notifications"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    title = Column(String, nullable=False)
+    message = Column(Text, nullable=False)
+    type = Column(String, nullable=False)  # 'appointment', 'payment', 'review', 'system', etc.
+    is_read = Column(Boolean, default=False)
+    related_id = Column(Integer)  # ID do recurso relacionado (appointment_id, payment_id, etc.)
+    related_type = Column(String)  # Tipo do recurso relacionado
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    
+    user = relationship("User", foreign_keys=[user_id])
+
+class Questionnaire(Base):
+    __tablename__ = "questionnaires"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    question_1 = Column(Integer)  # Resposta 1-5
+    question_2 = Column(Integer)
+    question_3 = Column(Integer)
+    question_4 = Column(Integer)
+    question_5 = Column(Integer)
+    question_6 = Column(Integer)
+    question_7 = Column(Integer)
+    question_8 = Column(Integer)
+    question_9 = Column(Integer)
+    question_10 = Column(Integer)
+    total_score = Column(Integer)  # Soma das respostas
+    recommendation = Column(Text)  # Recomendação baseada no score
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    user = relationship("User", foreign_keys=[user_id])
+
+class PsychologistPreRegistration(Base):
+    __tablename__ = "psychologist_pre_registrations"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    crp = Column(String, unique=True, nullable=False)
+    bio = Column(Text)
+    experience_years = Column(Integer, default=0)
+    consultation_price = Column(Float)
+    online_consultation = Column(Boolean, default=True)
+    in_person_consultation = Column(Boolean, default=False)
+    address = Column(String)
+    city = Column(String)
+    state = Column(String)
+    zip_code = Column(String)
+    specialty_ids = Column(String)  # JSON array de IDs
+    approach_ids = Column(String)  # JSON array de IDs
+    status = Column(String, default='pending')  # 'pending', 'approved', 'rejected'
+    rejection_reason = Column(Text)
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    user = relationship("User", foreign_keys=[user_id])
+
+class Withdrawal(Base):
+    __tablename__ = "withdrawals"
+    
+    id = Column(Integer, primary_key=True, index=True)
+    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
+    amount = Column(Float, nullable=False)
+    bank_name = Column(String, nullable=False)
+    bank_account = Column(String, nullable=False)
+    bank_agency = Column(String, nullable=False)
+    account_type = Column(String, nullable=False)  # 'checking', 'savings'
+    status = Column(String, default='pending')  # 'pending', 'processing', 'completed', 'rejected'
+    rejection_reason = Column(Text)
+    processed_at = Column(DateTime(timezone=True))
+    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    
+    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id])
 
