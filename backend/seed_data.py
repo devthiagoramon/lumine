@@ -49,11 +49,58 @@ try:
             approach = Approach(**app_data)
             db.add(approach)
     
+    # Criar usuário administrador padrão
+    admin_email = "admin@lumine.com"
+    admin_password = "admin123"  # Altere esta senha em produção!
+    
+    existing_admin = db.query(User).filter(User.email == admin_email).first()
+    if not existing_admin:
+        try:
+            # Usar a função corrigida que trata o limite de 72 bytes
+            hashed_password = get_password_hash(admin_password)
+            admin_user = User(
+                email=admin_email,
+                hashed_password=hashed_password,
+                full_name="Administrador",
+                is_admin=True,
+                is_psychologist=False,
+                is_active=True
+            )
+            db.add(admin_user)
+            print(f"SUCESSO: Usuario administrador criado!")
+            print(f"   Email: {admin_email}")
+            print(f"   Senha: {admin_password}")
+            print(f"   IMPORTANTE: Altere a senha apos o primeiro login!")
+        except Exception as e:
+            print(f"AVISO: Erro ao criar admin com passlib: {e}")
+            print("   Tentando com bcrypt diretamente...")
+            # Fallback: usar bcrypt diretamente
+            import bcrypt
+            salt = bcrypt.gensalt()
+            password_bytes = admin_password.encode('utf-8')
+            if len(password_bytes) > 72:
+                password_bytes = password_bytes[:72]
+            hashed_password = bcrypt.hashpw(password_bytes, salt).decode('utf-8')
+            admin_user = User(
+                email=admin_email,
+                hashed_password=hashed_password,
+                full_name="Administrador",
+                is_admin=True,
+                is_psychologist=False,
+                is_active=True
+            )
+            db.add(admin_user)
+            print(f"SUCESSO: Usuario administrador criado com bcrypt direto!")
+            print(f"   Email: {admin_email}")
+            print(f"   Senha: {admin_password}")
+    else:
+        print("INFO: Usuario administrador ja existe")
+    
     db.commit()
-    print("Dados iniciais criados com sucesso!")
+    print("\nSUCESSO: Dados iniciais criados com sucesso!")
     
 except Exception as e:
-    print(f"Erro ao criar dados iniciais: {e}")
+    print(f"ERRO ao criar dados iniciais: {e}")
     db.rollback()
 finally:
     db.close()

@@ -9,6 +9,7 @@ import PsychologistProfile from './pages/PsychologistProfile'
 import Dashboard from './pages/Dashboard'
 import PsychologistDashboard from './pages/PsychologistDashboard'
 import ClientDashboard from './pages/ClientDashboard'
+import AdminDashboard from './pages/AdminDashboard'
 import Forum from './pages/Forum'
 import EmotionDiary from './pages/EmotionDiary'
 import './App.css'
@@ -28,6 +29,7 @@ function App() {
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/dashboard/psicologo" element={<PsychologistDashboard />} />
             <Route path="/dashboard/cliente" element={<ClientDashboard />} />
+            <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/forum" element={<Forum />} />
             <Route path="/diario" element={<EmotionDiary />} />
           </Routes>

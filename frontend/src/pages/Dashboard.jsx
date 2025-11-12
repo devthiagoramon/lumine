@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { User, Edit, Plus, Briefcase, Star, MapPin, Monitor, Building2 } from 'lucide-react'
 import PsychologistProfileForm from '../components/PsychologistProfileForm'

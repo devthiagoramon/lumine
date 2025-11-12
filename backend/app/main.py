@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.routers import auth, users, psychologists, search, reviews, appointments, favorites, forum, emotion_diary, payments
+from app.routers import auth, users, psychologists, search, reviews, appointments, favorites, forum, emotion_diary, payments, admin
 from app.database import engine, Base
 
 # Criar tabelas
@@ -32,6 +32,7 @@ app.include_router(favorites.router, prefix="/api/favorites", tags=["favorites"]
 app.include_router(forum.router, prefix="/api/forum", tags=["forum"])
 app.include_router(emotion_diary.router, prefix="/api/emotion-diary", tags=["emotion-diary"])
 app.include_router(payments.router, prefix="/api/payments", tags=["payments"])
+app.include_router(admin.router, prefix="/api/admin", tags=["admin"])
 
 @app.get("/")
 async def root():

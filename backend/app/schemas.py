@@ -28,6 +28,7 @@ class UserResponse(BaseModel):
     phone: Optional[str]
     is_active: bool
     is_psychologist: bool
+    is_admin: bool
     created_at: datetime
     
     class Config:

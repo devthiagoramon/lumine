@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Search, User, LogOut, Menu, X } from 'lucide-react'
+import { Search, User, LogOut, Menu, X, Shield } from 'lucide-react'
 import { useState } from 'react'
 
 const Navbar = () => {
@@ -48,6 +48,15 @@ const Navbar = () => {
                 className="text-gray-700 hover:text-primary-600 transition-colors"
               >
                 Diário
+              </Link>
+            )}
+            {user && user.is_admin && (
+              <Link
+                to="/admin"
+                className="text-gray-700 hover:text-primary-600 transition-colors flex items-center gap-1"
+              >
+                <Shield size={18} />
+                <span>Admin</span>
               </Link>
             )}
 
@@ -119,6 +128,15 @@ const Navbar = () => {
                 onClick={() => setMobileMenuOpen(false)}
               >
                 Diário
+              </Link>
+            )}
+            {user && user.is_admin && (
+              <Link
+                to="/admin"
+                className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Painel Admin
               </Link>
             )}
             {user ? (
