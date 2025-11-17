@@ -34,7 +34,7 @@ class Psychologist(Base):
     specialties = relationship("Specialty", secondary=psychologist_specialties, back_populates="psychologists")
     approaches = relationship("Approach", secondary=psychologist_approaches, back_populates="psychologists")
     reviews = relationship("Review", back_populates="psychologist")
-    appointments = relationship("Appointment", foreign_keys="Appointment.psychologist_id")
-    availability = relationship("PsychologistAvailability", foreign_keys="PsychologistAvailability.psychologist_id")
-    withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.psychologist_id")
+    appointments = relationship("Appointment", foreign_keys="Appointment.psychologist_id", back_populates="psychologist", overlaps="appointments")
+    availability = relationship("PsychologistAvailability", foreign_keys="PsychologistAvailability.psychologist_id", back_populates="psychologist", overlaps="availability")
+    withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.psychologist_id", back_populates="psychologist", overlaps="withdrawals")
 

@@ -17,5 +17,5 @@ class Review(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     psychologist = relationship("Psychologist", back_populates="reviews")
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="reviews", overlaps="reviews")
 

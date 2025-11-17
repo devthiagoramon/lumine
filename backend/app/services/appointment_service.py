@@ -193,7 +193,14 @@ class AppointmentService:
     @staticmethod
     def validate_appointment_date(appointment_date: datetime) -> bool:
         """Validar se data é futura"""
-        return appointment_date > datetime.now()
+        from datetime import timezone
+        # Garantir que ambos os datetimes tenham timezone
+        if appointment_date.tzinfo is None:
+            # Se appointment_date não tem timezone, assumir UTC
+            appointment_date = appointment_date.replace(tzinfo=timezone.utc)
+        # Usar datetime.utcnow() com timezone para comparação
+        now = datetime.now(timezone.utc)
+        return appointment_date > now
     
     @staticmethod
     def validate_consultation_type(

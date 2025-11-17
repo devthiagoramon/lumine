@@ -40,6 +40,13 @@ def create_payment(
             detail="You can only pay for your own appointments"
         )
     
+    # Verificar se agendamento está confirmado (conforme diagrama de sequência)
+    if appointment.status != 'confirmed':
+        raise HTTPException(
+            status_code=400,
+            detail="Appointment must be confirmed by psychologist before payment"
+        )
+    
     # Verificar se já foi pago
     existing_payment = PaymentService.get_payment_by_appointment_id(
         db=db,
@@ -88,7 +95,7 @@ def create_payment(
     appointment.payment_id = payment_result["payment_id"]
     
     if payment_result["status"] == "paid":
-        appointment.status = "confirmed"
+        # Agendamento já está confirmado pelo psicólogo, apenas processar pagamento
         # Processar pagamento e atualizar saldo
         PaymentService.process_payment_success(db=db, payment=db_payment, appointment=appointment)
     else:

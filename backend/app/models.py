@@ -44,7 +44,7 @@ class User(Base):
     psychologist_profile = relationship("Psychologist", back_populates="user", uselist=False)
     favorite_psychologists = relationship("Psychologist", secondary=favorites, backref="favorited_by")
     appointments = relationship("Appointment", foreign_keys="Appointment.user_id")
-    reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="reviews")
+    reviews = relationship("Review", foreign_keys="Review.user_id")
     forum_posts = relationship("ForumPost", foreign_keys="ForumPost.user_id")
     forum_comments = relationship("ForumComment", foreign_keys="ForumComment.user_id")
     emotion_diaries = relationship("EmotionDiary", foreign_keys="EmotionDiary.user_id")
@@ -113,7 +113,7 @@ class Review(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
     psychologist = relationship("Psychologist", back_populates="reviews")
-    user = relationship("User", foreign_keys=[user_id], back_populates="user")
+    user = relationship("User", foreign_keys=[user_id])
 
 class Appointment(Base):
     __tablename__ = "appointments"

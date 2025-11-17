@@ -96,6 +96,8 @@ class PaymentService:
             **payment_data
         )
         db.add(payment)
+        db.commit()
+        db.refresh(payment)
         return payment
     
     @staticmethod

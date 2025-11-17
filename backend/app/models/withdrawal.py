@@ -22,5 +22,5 @@ class Withdrawal(Base):
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
-    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id])
+    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id], back_populates="withdrawals", overlaps="withdrawals")
 

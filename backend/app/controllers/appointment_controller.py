@@ -1,7 +1,7 @@
 """
 Appointment Controller - Endpoints de agendamentos
 """
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime
@@ -281,7 +281,7 @@ def confirm_appointment(
 @router.post("/{appointment_id}/reject", response_model=AppointmentResponse)
 def reject_appointment(
     appointment_id: int,
-    rejection_reason: str,
+    rejection_reason: str = Query(..., description="Motivo da recusa"),
     db: Session = Depends(get_db),
     current_user: User = Depends(auth.get_current_active_user)
 ):

@@ -21,5 +21,5 @@ class Payment(Base):
     updated_at = Column(DateTime(timezone=True), onupdate=func.now())
     
     appointment = relationship("Appointment", foreign_keys=[appointment_id])
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="payments", overlaps="payments")
 

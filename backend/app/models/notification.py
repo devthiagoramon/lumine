@@ -19,5 +19,5 @@ class Notification(Base):
     related_type = Column(String)  # Tipo do recurso relacionado
     created_at = Column(DateTime(timezone=True), server_default=func.now())
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[user_id], back_populates="notifications", overlaps="notifications")
 

@@ -211,3 +211,113 @@ def delete_availability(
     
     return None
 
+@router.get("/psychologist/{psychologist_id}/available-slots")
+def get_available_slots(
+    psychologist_id: int,
+    start_date: str,  # Formato YYYY-MM-DD
+    end_date: str,  # Formato YYYY-MM-DD
+    appointment_type: str = "online",
+    db: Session = Depends(get_db)
+):
+    """Obter horários disponíveis para agendamento"""
+    from datetime import date as date_type
+    
+    try:
+        start = date_type.fromisoformat(start_date)
+        end = date_type.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
+    
+    # Verificar se psicólogo existe
+    psychologist = db.query(Psychologist).filter(
+        Psychologist.id == psychologist_id
+    ).first()
+    
+    if not psychologist:
+        raise HTTPException(
+            status_code=404,
+            detail="Psychologist not found"
+        )
+    
+    # Validar período (máximo 3 meses)
+    if (end - start).days > 90:
+        raise HTTPException(
+            status_code=400,
+            detail="Date range cannot exceed 90 days"
+        )
+    
+    slots = AvailabilityService.get_available_slots(
+        db=db,
+        psychologist_id=psychologist_id,
+        start_date=start,
+        end_date=end,
+        appointment_type=appointment_type
+    )
+    
+    return {
+        "psychologist_id": psychologist_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "appointment_type": appointment_type,
+        "available_slots": slots,
+        "total_slots": len(slots)
+    }
+
+@router.get("/psychologist/{psychologist_id}/available-dates")
+def get_available_dates(
+    psychologist_id: int,
+    start_date: str,  # Formato YYYY-MM-DD
+    end_date: str,  # Formato YYYY-MM-DD
+    appointment_type: str = "online",
+    db: Session = Depends(get_db)
+):
+    """Obter datas com horários disponíveis (para calendário)"""
+    from datetime import date as date_type
+    
+    try:
+        start = date_type.fromisoformat(start_date)
+        end = date_type.fromisoformat(end_date)
+    except ValueError:
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid date format. Use YYYY-MM-DD"
+        )
+    
+    # Verificar se psicólogo existe
+    psychologist = db.query(Psychologist).filter(
+        Psychologist.id == psychologist_id
+    ).first()
+    
+    if not psychologist:
+        raise HTTPException(
+            status_code=404,
+            detail="Psychologist not found"
+        )
+    
+    # Validar período (máximo 3 meses)
+    if (end - start).days > 90:
+        raise HTTPException(
+            status_code=400,
+            detail="Date range cannot exceed 90 days"
+        )
+    
+    dates = AvailabilityService.get_available_dates(
+        db=db,
+        psychologist_id=psychologist_id,
+        start_date=start,
+        end_date=end,
+        appointment_type=appointment_type
+    )
+    
+    return {
+        "psychologist_id": psychologist_id,
+        "start_date": start_date,
+        "end_date": end_date,
+        "appointment_type": appointment_type,
+        "available_dates": dates,
+        "total_dates": len(dates)
+    }
+

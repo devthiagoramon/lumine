@@ -27,7 +27,10 @@ class AppointmentResponse(BaseModel):
     appointment_date: datetime
     appointment_type: str
     status: str
+    rejection_reason: Optional[str] = None
     notes: Optional[str]
+    payment_status: Optional[str] = None
+    payment_id: Optional[str] = None
     created_at: datetime
     updated_at: Optional[datetime]
     psychologist: PsychologistListItem
