@@ -51,8 +51,18 @@ const PsychologistManagement = () => {
     if (!window.confirm('Tem certeza que deseja remover a validação deste psicólogo?')) {
       return
     }
+
+    const reason = window.prompt('Informe o motivo para remover a validação:', '')
+
+    if (!reason || reason.trim().length < 5) {
+      alert('É necessário informar um motivo com pelo menos 5 caracteres.')
+      return
+    }
+
     try {
-      await axios.put(`/api/admin/psychologists/${id}/unverify`)
+      await axios.put(`/api/admin/psychologists/${id}/unverify`, null, {
+        params: { reason: reason.trim() }
+      })
       fetchPsychologists()
     } catch (err) {
       alert(err.response?.data?.detail || 'Erro ao remover validação')
