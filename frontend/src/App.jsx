@@ -1,5 +1,6 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom'
 import { AuthProvider } from './contexts/AuthContext'
+import { ToastProvider } from './contexts/ToastContext'
 import Navbar from './components/Navbar'
 import Home from './pages/Home'
 import Search from './pages/Search'
@@ -12,15 +13,18 @@ import ClientDashboard from './pages/ClientDashboard'
 import AdminDashboard from './pages/AdminDashboard'
 import Forum from './pages/Forum'
 import EmotionDiary from './pages/EmotionDiary'
+import Payments from './pages/Payments'
+import FinancialHistory from './pages/FinancialHistory'
 import './App.css'
 
 function App() {
   return (
     <AuthProvider>
-      <Router>
-        <div className="min-h-screen bg-gray-50">
-          <Navbar />
-          <Routes>
+      <ToastProvider>
+        <Router>
+          <div className="min-h-screen bg-gray-50">
+            <Navbar />
+            <Routes>
             <Route path="/" element={<Home />} />
             <Route path="/buscar" element={<Search />} />
             <Route path="/login" element={<Login />} />
@@ -32,9 +36,12 @@ function App() {
             <Route path="/admin" element={<AdminDashboard />} />
             <Route path="/forum" element={<Forum />} />
             <Route path="/diario" element={<EmotionDiary />} />
-          </Routes>
-        </div>
-      </Router>
+            <Route path="/pagamentos" element={<Payments />} />
+            <Route path="/historico-financeiro" element={<FinancialHistory />} />
+            </Routes>
+          </div>
+        </Router>
+      </ToastProvider>
     </AuthProvider>
   )
 }

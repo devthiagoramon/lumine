@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import axios from 'axios'
 import { MapPin, Star, Monitor, Building2, Calendar, CheckCircle, Heart, MessageSquare, Plus, Clock } from 'lucide-react'
 import AppointmentForm from '../components/AppointmentForm'
@@ -9,6 +10,7 @@ import ReviewForm from '../components/ReviewForm'
 const PsychologistProfile = () => {
   const { id } = useParams()
   const { user: currentUser } = useAuth()
+  const { success, error: showError } = useToast()
   const navigate = useNavigate()
   const [psychologist, setPsychologist] = useState(null)
   const [reviews, setReviews] = useState([])
@@ -28,7 +30,7 @@ const PsychologistProfile = () => {
     }
     
     if (currentUser.is_psychologist) {
-      alert('Psicólogos não podem agendar consultas com outros psicólogos.')
+      showError('Psicólogos não podem agendar consultas com outros psicólogos.')
       return
     }
     
@@ -77,7 +79,7 @@ const PsychologistProfile = () => {
 
   const handleToggleFavorite = async () => {
     if (!currentUser) {
-      alert('Você precisa estar logado para adicionar aos favoritos')
+      showError('Você precisa estar logado para adicionar aos favoritos')
       return
     }
 
@@ -85,31 +87,31 @@ const PsychologistProfile = () => {
       if (isFavorite) {
         await axios.delete(`/api/favorites/${id}`)
         setIsFavorite(false)
+        success('Removido dos favoritos')
       } else {
         await axios.post(`/api/favorites/${id}`)
         setIsFavorite(true)
+        success('Adicionado aos favoritos')
       }
     } catch (error) {
       console.error('Erro ao atualizar favorito:', error)
-      alert('Erro ao atualizar favorito')
+      showError('Erro ao atualizar favorito')
     }
   }
 
   const handleAppointmentSuccess = () => {
     setShowAppointmentForm(false)
-    // Mostrar mensagem de sucesso e redirecionar para o dashboard
-    alert('Agendamento criado com sucesso! Redirecionando para seu dashboard...')
-    // Redirecionar para o dashboard do cliente onde pode ver seus agendamentos
+    success('Agendamento criado com sucesso! Redirecionando para seu dashboard...')
     setTimeout(() => {
       navigate('/dashboard/cliente', { state: { message: 'Agendamento criado com sucesso!' } })
-    }, 800)
+    }, 1500)
   }
 
   const handleReviewSuccess = () => {
     setShowReviewForm(false)
     fetchPsychologist()
     fetchReviews()
-    alert('Avaliação enviada com sucesso!')
+    success('Avaliação enviada com sucesso!')
   }
 
   if (loading) {

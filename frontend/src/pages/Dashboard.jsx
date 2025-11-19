@@ -28,8 +28,14 @@ const Dashboard = () => {
       const response = await axios.get('/api/psychologists/me')
       setPsychologist(response.data)
     } catch (error) {
-      if (error.response?.status !== 404) {
+      if (error.response?.status === 404) {
+        // Perfil não existe ainda, é normal
+        setPsychologist(null)
+      } else if (error.response?.status === 401) {
+        navigate('/login')
+      } else {
         console.error('Erro ao carregar perfil:', error)
+        setPsychologist(null)
       }
     } finally {
       setLoading(false)

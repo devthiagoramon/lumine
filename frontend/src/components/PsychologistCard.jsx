@@ -2,19 +2,26 @@ import { Link } from 'react-router-dom'
 import { MapPin, Star, Monitor, Building2 } from 'lucide-react'
 
 const PsychologistCard = ({ psychologist }) => {
+  if (!psychologist || !psychologist.user) {
+    return null
+  }
+
+  const userName = psychologist.user?.full_name || 'Nome não disponível'
+  const specialties = psychologist.specialties || []
+
   return (
     <Link to={`/psicologo/${psychologist.id}`}>
       <div className="card p-6 hover:shadow-xl transition-all duration-200 h-full flex flex-col">
         {/* Profile Picture */}
         <div className="flex items-center mb-4">
           <div className="w-16 h-16 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-full flex items-center justify-center text-white text-2xl font-bold mr-4">
-            {psychologist.user.full_name.charAt(0).toUpperCase()}
+            {userName.charAt(0).toUpperCase()}
           </div>
           <div className="flex-1">
             <h3 className="text-xl font-bold text-gray-900">
-              {psychologist.user.full_name}
+              {userName}
             </h3>
-            <p className="text-sm text-gray-600">CRP: {psychologist.crp}</p>
+            <p className="text-sm text-gray-600">CRP: {psychologist.crp || 'N/A'}</p>
           </div>
         </div>
 
@@ -39,10 +46,10 @@ const PsychologistCard = ({ psychologist }) => {
         )}
 
         {/* Specialties */}
-        {psychologist.specialties.length > 0 && (
+        {specialties.length > 0 && (
           <div className="mb-4">
             <div className="flex flex-wrap gap-2">
-              {psychologist.specialties.slice(0, 3).map(spec => (
+              {specialties.slice(0, 3).map(spec => (
                 <span
                   key={spec.id}
                   className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full"
@@ -50,9 +57,9 @@ const PsychologistCard = ({ psychologist }) => {
                   {spec.name}
                 </span>
               ))}
-              {psychologist.specialties.length > 3 && (
+              {specialties.length > 3 && (
                 <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded-full">
-                  +{psychologist.specialties.length - 3}
+                  +{specialties.length - 3}
                 </span>
               )}
             </div>

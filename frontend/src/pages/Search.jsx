@@ -45,29 +45,42 @@ const Search = () => {
   const searchPsychologists = async () => {
     setLoading(true)
     try {
+      // Mapear parâmetros do inglês para português (como o backend espera)
       const params = {
-        page,
-        page_size: 12,
-        ...Object.fromEntries(
-          Object.entries(filters).filter(([_, v]) => 
-            v !== null && v !== '' && (Array.isArray(v) ? v.length > 0 : true)
-          )
-        )
+        pagina: page,
+        tamanho_pagina: 12
       }
 
-      // Converter arrays para query params
-      if (filters.specialty_ids.length > 0) {
-        params.specialty_ids = filters.specialty_ids
+      // Mapear filtros
+      if (filters.query) params.consulta = filters.query
+      if (filters.city) params.cidade = filters.city
+      if (filters.state) params.estado = filters.state
+      if (filters.specialty_ids && filters.specialty_ids.length > 0) {
+        params.ids_especialidades = filters.specialty_ids
       }
-      if (filters.approach_ids.length > 0) {
-        params.approach_ids = filters.approach_ids
+      if (filters.approach_ids && filters.approach_ids.length > 0) {
+        params.ids_abordagens = filters.approach_ids
+      }
+      if (filters.online_consultation !== null) {
+        params.consulta_online = filters.online_consultation
+      }
+      if (filters.in_person_consultation !== null) {
+        params.consulta_presencial = filters.in_person_consultation
+      }
+      if (filters.min_rating !== null) {
+        params.avaliacao_minima = filters.min_rating
+      }
+      if (filters.max_price !== null) {
+        params.preco_maximo = filters.max_price
       }
 
       const response = await axios.get('/api/search/psychologists', { params })
-      setPsychologists(response.data.psychologists)
-      setTotal(response.data.total)
+      setPsychologists(response.data.psychologists || [])
+      setTotal(response.data.total || 0)
     } catch (error) {
       console.error('Erro ao buscar psicólogos:', error)
+      setPsychologists([])
+      setTotal(0)
     } finally {
       setLoading(false)
     }

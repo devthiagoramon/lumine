@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useToast } from '../../contexts/ToastContext'
 import axios from 'axios'
 import { CheckCircle, XCircle, User, Mail, Phone, MapPin, Briefcase, Star, AlertCircle, Loader } from 'lucide-react'
 
 const PsychologistManagement = () => {
+  const { success, error: showError, warning } = useToast()
   const [psychologists, setPsychologists] = useState([])
   const [loading, setLoading] = useState(true)
   const [filter, setFilter] = useState('pending') // 'pending', 'verified', 'all'
@@ -41,8 +43,9 @@ const PsychologistManagement = () => {
     try {
       await axios.put(`/api/admin/psychologists/${id}/verify`)
       fetchPsychologists()
+      success('Psicólogo validado com sucesso')
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao validar psicólogo')
+      showError(err.response?.data?.detail || 'Erro ao validar psicólogo')
       console.error('Erro ao validar psicólogo:', err)
     }
   }
@@ -51,11 +54,22 @@ const PsychologistManagement = () => {
     if (!window.confirm('Tem certeza que deseja remover a validação deste psicólogo?')) {
       return
     }
+
+    const reason = window.prompt('Informe o motivo para remover a validação:', '')
+
+    if (!reason || reason.trim().length < 5) {
+      warning('É necessário informar um motivo com pelo menos 5 caracteres.')
+      return
+    }
+
     try {
-      await axios.put(`/api/admin/psychologists/${id}/unverify`)
+      await axios.put(`/api/admin/psychologists/${id}/unverify`, null, {
+        params: { reason: reason.trim() }
+      })
       fetchPsychologists()
+      success('Validação removida com sucesso')
     } catch (err) {
-      alert(err.response?.data?.detail || 'Erro ao remover validação')
+      showError(err.response?.data?.detail || 'Erro ao remover validação')
       console.error('Erro ao remover validação:', err)
     }
   }

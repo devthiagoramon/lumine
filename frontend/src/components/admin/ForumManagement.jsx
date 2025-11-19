@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
+import { useToast } from '../../contexts/ToastContext'
 import axios from 'axios'
 import { Plus, Edit, Trash2, Eye, MessageSquare, User, Search, Filter, AlertCircle, Loader } from 'lucide-react'
 
 const ForumManagement = () => {
+  const { success, error: showError } = useToast()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showPostForm, setShowPostForm] = useState(false)
@@ -59,9 +61,10 @@ const ForumManagement = () => {
     try {
       await axios.delete(`/api/admin/forum/posts/${postId}`)
       fetchPosts()
+      success('Post excluído com sucesso')
     } catch (error) {
       console.error('Erro ao excluir post:', error)
-      alert('Erro ao excluir post')
+      showError('Erro ao excluir post')
     }
   }
 
@@ -71,9 +74,10 @@ const ForumManagement = () => {
       setEditingPost(null)
       setShowPostForm(false)
       fetchPosts()
+      success('Post atualizado com sucesso')
     } catch (error) {
       console.error('Erro ao atualizar post:', error)
-      alert('Erro ao atualizar post')
+      showError('Erro ao atualizar post')
     }
   }
 

@@ -1,12 +1,14 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import { Calendar, Heart, Star, Clock, CheckCircle, XCircle, Plus, Search, CreditCard } from 'lucide-react'
+import { Calendar, Heart, Star, Clock, CheckCircle, XCircle, Plus, Search, CreditCard, DollarSign } from 'lucide-react'
 import PaymentForm from '../components/PaymentForm'
 
 const ClientDashboard = () => {
   const { user, loading: authLoading } = useAuth()
+  const { success, error: showError } = useToast()
   const navigate = useNavigate()
   const [appointments, setAppointments] = useState([])
   const [favorites, setFavorites] = useState([])
@@ -28,14 +30,19 @@ const ClientDashboard = () => {
   const fetchData = async () => {
     try {
       const [appointmentsRes, favoritesRes] = await Promise.all([
-        axios.get('/api/appointments/my-appointments'),
+        axios.get('/api/appointments/meus-agendamentos'),
         axios.get('/api/favorites/')
       ])
       
-      setAppointments(appointmentsRes.data)
-      setFavorites(favoritesRes.data)
+      setAppointments(appointmentsRes.data || [])
+      setFavorites(favoritesRes.data || [])
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
+      setAppointments([])
+      setFavorites([])
+      if (error.response?.status === 401) {
+        navigate('/login')
+      }
     } finally {
       setLoading(false)
     }
@@ -58,9 +65,10 @@ const ClientDashboard = () => {
     try {
       await axios.delete(`/api/appointments/${appointmentId}`)
       fetchData()
+      success('Agendamento cancelado com sucesso')
     } catch (error) {
       console.error('Erro ao cancelar agendamento:', error)
-      alert('Erro ao cancelar agendamento')
+      showError('Erro ao cancelar agendamento')
     }
   }
 
@@ -107,12 +115,14 @@ const ClientDashboard = () => {
     )
   }
 
-  const upcomingAppointments = appointments.filter(a => 
+  const upcomingAppointments = (appointments || []).filter(a => 
+    a && a.appointment_date &&
     new Date(a.appointment_date) > new Date() && 
     (a.status === 'pending' || a.status === 'confirmed')
   )
-  const pastAppointments = appointments.filter(a => 
-    new Date(a.appointment_date) < new Date() || a.status === 'completed'
+  const pastAppointments = (appointments || []).filter(a => 
+    a && a.appointment_date &&
+    (new Date(a.appointment_date) < new Date() || a.status === 'completed')
   )
 
   return (
@@ -200,10 +210,10 @@ const ClientDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <Link
-                                to={`/psicologo/${appointment.psychologist.id}`}
+                                to={`/psicologo/${appointment.psychologist?.id || ''}`}
                                 className="text-lg font-semibold text-primary-600 hover:text-primary-700"
                               >
-                                {appointment.psychologist.user.full_name}
+                                {appointment.psychologist?.user?.full_name || 'Psicólogo não encontrado'}
                               </Link>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
@@ -229,7 +239,7 @@ const ClientDashboard = () => {
                         <p className="text-gray-600 mb-1">
                           Tipo: {appointment.appointment_type === 'online' ? 'Online' : 'Presencial'}
                         </p>
-                        {appointment.psychologist.consultation_price && (
+                        {appointment.psychologist?.consultation_price && (
                           <p className="text-gray-700 font-semibold mb-1">
                             Valor: R$ {appointment.psychologist.consultation_price.toFixed(2)}
                           </p>
@@ -241,21 +251,36 @@ const ClientDashboard = () => {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        {appointment.payment_status === 'pending' && (
+                        {appointment.status === 'confirmed' && appointment.payment_status === 'pending' && (
                           <button
                             onClick={() => handlePayAppointment(appointment)}
                             className="btn-primary text-sm px-4 py-2 flex items-center justify-center"
                           >
                             <CreditCard className="mr-2" size={16} />
-                            Pagar
+                            Pagar Agora
                           </button>
                         )}
-                        <button
-                          onClick={() => handleCancelAppointment(appointment.id)}
-                          className="btn-secondary text-sm px-4 py-2"
-                        >
-                          Cancelar
-                        </button>
+                        {appointment.status === 'pending' && (
+                          <span className="text-sm text-yellow-600 font-medium px-4 py-2 text-center">
+                            Aguardando confirmação do psicólogo
+                          </span>
+                        )}
+                        {appointment.status === 'rejected' && (
+                          <div className="text-sm text-red-600 px-4 py-2">
+                            <p className="font-medium">Agendamento recusado</p>
+                            {appointment.rejection_reason && (
+                              <p className="text-xs mt-1">{appointment.rejection_reason}</p>
+                            )}
+                          </div>
+                        )}
+                        {appointment.status !== 'rejected' && appointment.status !== 'completed' && (
+                          <button
+                            onClick={() => handleCancelAppointment(appointment.id)}
+                            className="btn-secondary text-sm px-4 py-2"
+                          >
+                            Cancelar
+                          </button>
+                        )}
                       </div>
                         </div>
                       </div>
@@ -275,10 +300,10 @@ const ClientDashboard = () => {
                           <div className="flex-1">
                             <div className="flex items-center gap-3 mb-2">
                               <Link
-                                to={`/psicologo/${appointment.psychologist.id}`}
+                                to={`/psicologo/${appointment.psychologist?.id || ''}`}
                                 className="text-lg font-semibold text-gray-700"
                               >
-                                {appointment.psychologist.user.full_name}
+                                {appointment.psychologist?.user?.full_name || 'Psicólogo não encontrado'}
                               </Link>
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
                                 appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
@@ -292,7 +317,7 @@ const ClientDashboard = () => {
                               {formatDate(appointment.appointment_date)}
                             </p>
                           </div>
-                          {appointment.status === 'completed' && (
+                          {appointment.status === 'completed' && appointment.psychologist?.id && (
                             <Link
                               to={`/psicologo/${appointment.psychologist.id}`}
                               className="btn-secondary text-sm px-4 py-2"
@@ -340,9 +365,9 @@ const ClientDashboard = () => {
                           className="flex-1"
                         >
                           <h3 className="font-semibold text-gray-900 hover:text-primary-600">
-                            {psychologist.user.full_name}
+                            {psychologist.user?.full_name || 'Nome não disponível'}
                           </h3>
-                          <p className="text-sm text-gray-600">CRP: {psychologist.crp}</p>
+                          <p className="text-sm text-gray-600">CRP: {psychologist.crp || 'N/A'}</p>
                         </Link>
                         <button
                           onClick={() => handleRemoveFavorite(psychologist.id)}
@@ -401,6 +426,10 @@ const ClientDashboard = () => {
         <div className="card p-6">
           <h2 className="text-xl font-bold text-gray-900 mb-4">Ações Rápidas</h2>
           <div className="flex flex-wrap gap-4">
+            <Link to="/pagamentos" className="btn-secondary flex items-center">
+              <DollarSign className="mr-2" size={18} />
+              Meus Pagamentos
+            </Link>
             <Link to="/buscar" className="btn-primary inline-flex items-center">
               <Search className="mr-2" size={18} />
               Buscar Psicólogos

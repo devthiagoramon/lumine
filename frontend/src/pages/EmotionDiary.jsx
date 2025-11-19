@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
 import { Calendar, Heart, Plus, Edit, Trash2, TrendingUp, BarChart3 } from 'lucide-react'
@@ -7,6 +8,7 @@ import EmotionEntryForm from '../components/EmotionEntryForm'
 
 const EmotionDiary = () => {
   const { user, loading: authLoading } = useAuth()
+  const { success, error: showError } = useToast()
   const navigate = useNavigate()
   const [entries, setEntries] = useState([])
   const [stats, setStats] = useState(null)
@@ -88,9 +90,10 @@ const EmotionDiary = () => {
       await axios.delete(`/api/emotion-diary/${entryId}`)
       fetchEntries()
       fetchStats()
+      success('Entrada excluída com sucesso')
     } catch (error) {
       console.error('Erro ao excluir entrada:', error)
-      alert('Erro ao excluir entrada')
+      showError('Erro ao excluir entrada')
     }
   }
 

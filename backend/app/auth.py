@@ -1,14 +1,12 @@
 from datetime import datetime, timedelta
 from typing import Optional
 from jose import JWTError, jwt
-from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from app.database import get_db
-from app.models import User
+from app.models.user import User
 import os
 from dotenv import load_dotenv
+import bcrypt
 
 load_dotenv()
 
@@ -16,17 +14,15 @@ SECRET_KEY = os.getenv("SECRET_KEY", "your-secret-key-change-in-production")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "30"))
 
-# Configurar passlib para evitar problemas com detecção de versão do bcrypt
-pwd_context = CryptContext(
-    schemes=["bcrypt"],
-    deprecated="auto",
-    bcrypt__rounds=12,
-    bcrypt__ident="2b"  # Forçar uso do formato 2b
-)
+# Usar bcrypt diretamente para evitar problemas com passlib
+# O passlib tem problemas de compatibilidade com algumas versões do bcrypt
+# Usando bcrypt diretamente, evitamos o erro "AttributeError: module 'bcrypt' has no attribute '__about__'"
+USE_PASSLIB = False
+
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="api/auth/login")
 
 def verify_password(plain_password, hashed_password):
-    """Verifica se a senha está correta"""
+    """Verifica se a senha está correta usando bcrypt diretamente"""
     try:
         # Bcrypt tem limite de 72 bytes, truncar se necessário
         if isinstance(plain_password, str):
@@ -37,34 +33,20 @@ def verify_password(plain_password, hashed_password):
         # Truncar se exceder 72 bytes
         if len(password_bytes) > 72:
             password_bytes = password_bytes[:72]
-            plain_password = password_bytes.decode('utf-8', errors='ignore')
-        elif not isinstance(plain_password, str):
-            plain_password = password_bytes.decode('utf-8', errors='ignore')
         
-        return pwd_context.verify(plain_password, hashed_password)
-    except Exception as e:
-        # Em caso de erro com passlib, tentar com bcrypt diretamente
-        try:
-            import bcrypt
-            if isinstance(plain_password, str):
-                password_bytes = plain_password.encode('utf-8')
-            else:
-                password_bytes = plain_password
-            if len(password_bytes) > 72:
-                password_bytes = password_bytes[:72]
-            
-            # Verificar com bcrypt diretamente
-            if isinstance(hashed_password, str):
-                hashed_bytes = hashed_password.encode('utf-8')
-            else:
-                hashed_bytes = hashed_password
-            
-            return bcrypt.checkpw(password_bytes, hashed_bytes)
-        except:
-            return False
+        # Converter hashed_password para bytes se necessário
+        if isinstance(hashed_password, str):
+            hashed_bytes = hashed_password.encode('utf-8')
+        else:
+            hashed_bytes = hashed_password
+        
+        # Usar bcrypt diretamente
+        return bcrypt.checkpw(password_bytes, hashed_bytes)
+    except Exception:
+        return False
 
 def get_password_hash(password):
-    """Gera hash da senha usando bcrypt"""
+    """Gera hash da senha usando bcrypt diretamente"""
     try:
         # Bcrypt tem limite de 72 bytes, garantir que não exceda
         if isinstance(password, str):
@@ -75,13 +57,14 @@ def get_password_hash(password):
         # Truncar se necessário (muito raro, mas por segurança)
         if len(password_bytes) > 72:
             password_bytes = password_bytes[:72]
-            password = password_bytes.decode('utf-8', errors='ignore')
         
-        return pwd_context.hash(password)
-    except Exception as e:
-        # Em caso de erro, tentar com bcrypt diretamente
-        import bcrypt
-        salt = bcrypt.gensalt()
+        # Usar bcrypt diretamente
+        salt = bcrypt.gensalt(rounds=12)
+        hashed = bcrypt.hashpw(password_bytes, salt)
+        return hashed.decode('utf-8')
+    except Exception:
+        # Fallback em caso de erro
+        salt = bcrypt.gensalt(rounds=12)
         if isinstance(password, str):
             password = password.encode('utf-8')
         if len(password) > 72:
@@ -99,8 +82,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
+def authenticate_user(email: str, password: str):
+    user = User.obter_por_email(email)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -108,8 +91,7 @@ def authenticate_user(db: Session, email: str, password: str):
     return user
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -123,7 +105,7 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.email == email).first()
+    user = User.obter_por_email(email)
     if user is None:
         raise credentials_exception
     return user

@@ -1,6 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
-import { Search, User, LogOut, Menu, X, Shield } from 'lucide-react'
+import { Search, User, LogOut, Menu, X, Shield, DollarSign, Wallet } from 'lucide-react'
 import { useState } from 'react'
 
 const Navbar = () => {
@@ -43,11 +43,29 @@ const Navbar = () => {
               Fórum
             </Link>
             {user && !user.is_psychologist && (
+              <>
+                <Link
+                  to="/diario"
+                  className="text-gray-700 hover:text-primary-600 transition-colors"
+                >
+                  Diário
+                </Link>
+                <Link
+                  to="/pagamentos"
+                  className="text-gray-700 hover:text-primary-600 transition-colors flex items-center gap-1"
+                >
+                  <DollarSign size={18} />
+                  <span>Pagamentos</span>
+                </Link>
+              </>
+            )}
+            {user && user.is_psychologist && (
               <Link
-                to="/diario"
-                className="text-gray-700 hover:text-primary-600 transition-colors"
+                to="/historico-financeiro"
+                className="text-gray-700 hover:text-primary-600 transition-colors flex items-center gap-1"
               >
-                Diário
+                <Wallet size={18} />
+                <span>Financeiro</span>
               </Link>
             )}
             {user && user.is_admin && (
@@ -122,12 +140,30 @@ const Navbar = () => {
               Fórum
             </Link>
             {user && !user.is_psychologist && (
+              <>
+                <Link
+                  to="/diario"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Diário
+                </Link>
+                <Link
+                  to="/pagamentos"
+                  className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Pagamentos
+                </Link>
+              </>
+            )}
+            {user && user.is_psychologist && (
               <Link
-                to="/diario"
+                to="/historico-financeiro"
                 className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                Diário
+                Histórico Financeiro
               </Link>
             )}
             {user && user.is_admin && (

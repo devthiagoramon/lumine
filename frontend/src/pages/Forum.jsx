@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
+import { useToast } from '../contexts/ToastContext'
 import axios from 'axios'
 import { MessageSquare, Eye, Heart, Plus, Search, Filter, User, Edit, Trash2 } from 'lucide-react'
 import PostForm from '../components/PostForm'
@@ -8,6 +9,7 @@ import CommentForm from '../components/CommentForm'
 
 const Forum = () => {
   const { user } = useAuth()
+  const { success, error: showError } = useToast()
   const [posts, setPosts] = useState([])
   const [loading, setLoading] = useState(true)
   const [showPostForm, setShowPostForm] = useState(false)
@@ -82,9 +84,10 @@ const Forum = () => {
     try {
       await axios.delete(`/api/forum/posts/${postId}`)
       fetchPosts()
+      success('Post excluído com sucesso')
     } catch (error) {
       console.error('Erro ao excluir post:', error)
-      alert('Erro ao excluir post')
+      showError('Erro ao excluir post')
     }
   }
 
