@@ -8,73 +8,86 @@ from app.database import get_db
 from app import auth
 from app.schemas import QuestionnaireCreate, QuestionnaireResponse
 from app.models.user import User
-from app.services.questionnaire_service import QuestionnaireService
+from app.models.questionnaire import Questionnaire
 
 router = APIRouter()
 
 @router.post("/", response_model=QuestionnaireResponse, status_code=status.HTTP_201_CREATED)
-def create_questionnaire(
-    questionnaire: QuestionnaireCreate,
+def criar_questionario(
+    questionario: QuestionnaireCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Responder questionário de autopercepção"""
     # Validar respostas (1-5)
-    answers = [
-        questionnaire.question_1, questionnaire.question_2, questionnaire.question_3,
-        questionnaire.question_4, questionnaire.question_5, questionnaire.question_6,
-        questionnaire.question_7, questionnaire.question_8, questionnaire.question_9,
-        questionnaire.question_10
+    respostas = [
+        questionario.question_1, questionario.question_2, questionario.question_3,
+        questionario.question_4, questionario.question_5, questionario.question_6,
+        questionario.question_7, questionario.question_8, questionario.question_9,
+        questionario.question_10
     ]
     
-    for answer in answers:
-        if answer < 1 or answer > 5:
+    for resposta in respostas:
+        if resposta < 1 or resposta > 5:
             raise HTTPException(
                 status_code=400,
-                detail="All answers must be between 1 and 5"
+                detail="Todas as respostas devem estar entre 1 e 5"
             )
     
-    # Criar questionário usando service
-    answers_dict = {
-        f'question_{i+1}': answers[i]
-        for i in range(10)
-    }
-    db_questionnaire = QuestionnaireService.create_questionnaire(
-        db=db,
-        user_id=current_user.id,
-        answers=answers_dict
-    )
+    # Calcular score total
+    pontuacao_total = sum(respostas)
     
-    return db_questionnaire
+    # Calcular recomendação
+    if pontuacao_total <= 20:
+        recomendacao = "Você está se sentindo muito bem! Continue cuidando da sua saúde mental."
+    elif pontuacao_total <= 30:
+        recomendacao = "Você está se sentindo bem, mas pode se beneficiar de algumas práticas de autocuidado."
+    elif pontuacao_total <= 40:
+        recomendacao = "Considere buscar apoio profissional. A terapia pode ajudá-lo a lidar melhor com seus sentimentos."
+    else:
+        recomendacao = "É importante buscar ajuda profissional. Um psicólogo pode oferecer o suporte necessário."
+    
+    # Criar questionário
+    questionario_db = Questionnaire.criar(
+        db,
+        user_id=usuario_atual.id,
+        question_1=questionario.question_1,
+        question_2=questionario.question_2,
+        question_3=questionario.question_3,
+        question_4=questionario.question_4,
+        question_5=questionario.question_5,
+        question_6=questionario.question_6,
+        question_7=questionario.question_7,
+        question_8=questionario.question_8,
+        question_9=questionario.question_9,
+        question_10=questionario.question_10,
+        total_score=pontuacao_total,
+        recommendation=recomendacao
+    )
+    return questionario_db
 
 @router.get("/", response_model=List[QuestionnaireResponse])
-def get_my_questionnaires(
+def obter_meus_questionarios(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus questionários"""
-    questionnaires = QuestionnaireService.get_questionnaires_by_user(
-        db=db,
-        user_id=current_user.id
-    )
-    return questionnaires
+    questionarios = Questionnaire.listar_por_usuario(db, usuario_atual.id)
+    return questionarios
 
-@router.get("/latest", response_model=QuestionnaireResponse)
-def get_latest_questionnaire(
+@router.get("/mais-recente", response_model=QuestionnaireResponse)
+def obter_questionario_mais_recente(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter questionário mais recente"""
-    questionnaire = QuestionnaireService.get_latest_questionnaire(
-        db=db,
-        user_id=current_user.id
-    )
+    questionario = Questionnaire.obter_mais_recente(db, usuario_atual.id)
     
-    if not questionnaire:
+    if not questionario:
         raise HTTPException(
             status_code=404,
-            detail="No questionnaire found"
+            detail="Nenhum questionário encontrado"
         )
     
-    return questionnaire
+    return questionario
 

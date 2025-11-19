@@ -9,27 +9,25 @@ from app import auth
 from app.schemas import WithdrawalCreate, WithdrawalResponse
 from app.models.user import User
 from app.models.psychologist import Psychologist
-from app.services.withdrawal_service import WithdrawalService
-from app.services.notification_service import NotificationService
+from app.models.withdrawal import Withdrawal
+from app.models.notification import Notification
 
 router = APIRouter()
 
 @router.post("/", response_model=WithdrawalResponse, status_code=status.HTTP_201_CREATED)
-def create_withdrawal(
-    withdrawal: WithdrawalCreate,
+def criar_saque(
+    saque: WithdrawalCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Solicitar saque"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
             detail="Only psychologists can request withdrawals"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
     
     if not psychologist:
         raise HTTPException(
@@ -39,60 +37,60 @@ def create_withdrawal(
     
     # Verificar saldo disponível
     balance = psychologist.balance or 0.0
-    if withdrawal.amount > balance:
+    if saque.amount > balance:
         raise HTTPException(
             status_code=400,
             detail=f"Insufficient balance. Available: R$ {balance:.2f}"
         )
     
-    if withdrawal.amount <= 0:
+    if saque.amount <= 0:
         raise HTTPException(
             status_code=400,
             detail="Withdrawal amount must be greater than 0"
         )
     
-    # Criar solicitação de saque usando service
-    withdrawal_data = withdrawal.dict()
-    db_withdrawal = WithdrawalService.create_withdrawal(
-        db=db,
+    # Criar solicitação de saque
+    db_withdrawal = Withdrawal.criar(
+        db,
         psychologist_id=psychologist.id,
-        withdrawal_data=withdrawal_data
+        amount=saque.amount,
+        bank_name=saque.bank_name,
+        bank_account=saque.bank_account,
+        bank_agency=saque.bank_agency,
+        account_type=saque.account_type,
+        status='pending'
     )
     
-    if not db_withdrawal:
-        raise HTTPException(
-            status_code=400,
-            detail="Failed to create withdrawal"
-        )
+    # Reservar valor (subtrair do saldo)
+    psychologist.atualizar(db, balance=balance - saque.amount)
     
     # Criar notificação
-    NotificationService.create_notification(
-        db=db,
-        user_id=current_user.id,
+    Notification.criar(
+        db,
+        user_id=usuario_atual.id,
         title="Solicitação de Saque Criada",
-        message=f"Sua solicitação de saque de R$ {withdrawal.amount:.2f} foi criada e está em análise.",
+        message=f"Sua solicitação de saque de R$ {saque.amount:.2f} foi criada e está em análise.",
         type="withdrawal",
         related_id=db_withdrawal.id,
-        related_type="withdrawal"
+        related_type="withdrawal",
+        is_read=False
     )
     
     return db_withdrawal
 
 @router.get("/", response_model=List[WithdrawalResponse])
-def get_my_withdrawals(
+def obter_meus_saques(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus saques"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
             detail="Only psychologists can view withdrawals"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
     
     if not psychologist:
         raise HTTPException(
@@ -100,29 +98,24 @@ def get_my_withdrawals(
             detail="Psychologist profile not found"
         )
     
-    withdrawals = WithdrawalService.get_withdrawals_by_psychologist(
-        db=db,
-        psychologist_id=psychologist.id
-    )
+    withdrawals = Withdrawal.listar_por_psicologo(db, psychologist.id)
     
     return withdrawals
 
-@router.get("/{withdrawal_id}", response_model=WithdrawalResponse)
-def get_withdrawal(
-    withdrawal_id: int,
+@router.get("/{id_saque}", response_model=WithdrawalResponse)
+def obter_saque(
+    id_saque: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saque específico"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
             detail="Only psychologists can view withdrawals"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
     
     if not psychologist:
         raise HTTPException(
@@ -130,11 +123,7 @@ def get_withdrawal(
             detail="Psychologist profile not found"
         )
     
-    withdrawal = WithdrawalService.get_withdrawal_by_id(
-        db=db,
-        withdrawal_id=withdrawal_id,
-        psychologist_id=psychologist.id
-    )
+    withdrawal = Withdrawal.obter_por_id(db, id_saque, psychologist_id=psychologist.id)
     
     if not withdrawal:
         raise HTTPException(

@@ -10,39 +10,34 @@ from app.schemas import (
 )
 from app.models.user import User
 from app.models.psychologist_pre_registration import PsychologistPreRegistration
-from app.services.pre_registration_service import PreRegistrationService
+import json
 
 router = APIRouter()
 
 @router.post("/", response_model=PsychologistPreRegistrationResponse, status_code=status.HTTP_201_CREATED)
-def create_pre_registration(
-    pre_registration: PsychologistPreRegistrationCreate,
+def criar_pre_cadastro(
+    pre_cadastro: PsychologistPreRegistrationCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar pré-cadastro de psicólogo"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
             detail="Only psychologists can create pre-registration"
         )
     
     # Verificar se já tem pré-cadastro pendente
-    existing = PreRegistrationService.get_pre_registration_by_user_id(
-        db=db,
-        user_id=current_user.id
-    )
+    existing = PsychologistPreRegistration.verificar_pendente(db, usuario_atual.id)
     
-    if existing and existing.status == 'pending':
+    if existing:
         raise HTTPException(
             status_code=400,
             detail="You already have a pending pre-registration"
         )
     
     # Verificar se CRP já existe
-    existing_crp = db.query(PsychologistPreRegistration).filter(
-        PsychologistPreRegistration.crp == pre_registration.crp
-    ).first()
+    existing_crp = PsychologistPreRegistration.verificar_crp_existente(db, pre_cadastro.crp)
     
     if existing_crp:
         raise HTTPException(
@@ -50,28 +45,25 @@ def create_pre_registration(
             detail="CRP already registered"
         )
     
-    # Criar pré-cadastro usando service
-    pre_registration_data = pre_registration.dict(exclude={"specialty_ids", "approach_ids"})
-    db_pre_registration = PreRegistrationService.create_pre_registration(
-        db=db,
-        user_id=current_user.id,
-        pre_registration_data=pre_registration_data,
-        specialty_ids=pre_registration.specialty_ids,
-        approach_ids=pre_registration.approach_ids
+    # Criar pré-cadastro
+    pre_registration_data = pre_cadastro.dict(exclude={"specialty_ids", "approach_ids"})
+    db_pre_registration = PsychologistPreRegistration.criar(
+        db,
+        user_id=usuario_atual.id,
+        specialty_ids=json.dumps(pre_cadastro.specialty_ids) if pre_cadastro.specialty_ids else "[]",
+        approach_ids=json.dumps(pre_cadastro.approach_ids) if pre_cadastro.approach_ids else "[]",
+        **pre_registration_data
     )
     
     return db_pre_registration
 
 @router.get("/my-pre-registration", response_model=PsychologistPreRegistrationResponse)
-def get_my_pre_registration(
+def obter_meu_pre_cadastro(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meu pré-cadastro"""
-    pre_registration = PreRegistrationService.get_pre_registration_by_user_id(
-        db=db,
-        user_id=current_user.id
-    )
+    pre_registration = PsychologistPreRegistration.obter_por_usuario(db, usuario_atual.id)
     
     if not pre_registration:
         raise HTTPException(

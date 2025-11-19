@@ -11,228 +11,246 @@ from app.models.user import User
 from app.models.psychologist import Psychologist
 from app.models.appointment import Appointment
 from app.models.payment import Payment
-from app.services.payment_service import PaymentService
+from app.models.notification import Notification
+import uuid
+import random
+import time
 
 router = APIRouter()
 
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
-def create_payment(
-    payment: PaymentCreate,
+def criar_pagamento(
+    pagamento: PaymentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar pagamento"""
     # Verificar se agendamento existe
-    appointment = db.query(Appointment).filter(
-        Appointment.id == payment.appointment_id
-    ).first()
+    agendamento = Appointment.obter_por_id(db, pagamento.appointment_id)
     
-    if not appointment:
+    if not agendamento:
         raise HTTPException(
             status_code=404,
-            detail="Appointment not found"
+            detail="Agendamento não encontrado"
         )
     
     # Verificar se agendamento pertence ao usuário
-    if appointment.user_id != current_user.id:
+    if agendamento.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=403,
-            detail="You can only pay for your own appointments"
+            detail="Você só pode pagar seus próprios agendamentos"
         )
     
     # Verificar se agendamento está confirmado (conforme diagrama de sequência)
-    if appointment.status != 'confirmed':
+    if agendamento.status != 'confirmed':
         raise HTTPException(
             status_code=400,
-            detail="Appointment must be confirmed by psychologist before payment"
+            detail="Agendamento deve ser confirmado pelo psicólogo antes do pagamento"
         )
     
     # Verificar se já foi pago
-    existing_payment = PaymentService.get_payment_by_appointment_id(
-        db=db,
-        appointment_id=payment.appointment_id
-    )
+    pagamento_existente = Payment.obter_por_agendamento(db, pagamento.appointment_id)
     
-    if existing_payment and existing_payment.status == 'paid':
+    if pagamento_existente and pagamento_existente.status == 'paid':
         raise HTTPException(
             status_code=400,
-            detail="Appointment already paid"
+            detail="Agendamento já foi pago"
         )
     
     # Obter valor do psicólogo
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.id == appointment.psychologist_id
-    ).first()
+    psicologo = Psychologist.obter_por_id(db, agendamento.psychologist_id)
     
-    if not psychologist or not psychologist.consultation_price:
+    if not psicologo or not psicologo.consultation_price:
         raise HTTPException(
             status_code=400,
-            detail="Psychologist consultation price not set"
+            detail="Preço da consulta do psicólogo não definido"
         )
     
-    amount = psychologist.consultation_price
+    valor = psicologo.consultation_price
     
     # Processar pagamento mockado
-    payment_result = PaymentService.process_mock_payment(payment.payment_method, amount)
+    time.sleep(0.5)  # Simular delay
+    sucesso = random.random() > 0.05  # 95% de sucesso
     
-    # Criar registro de pagamento usando service
-    payment_data = {
-        "amount": amount,
-        "payment_method": payment.payment_method,
-        "status": payment_result["status"],
-        "payment_id": payment_result["payment_id"],
-        "transaction_id": payment_result.get("transaction_id")
-    }
-    db_payment = PaymentService.create_payment(
-        db=db,
-        appointment_id=payment.appointment_id,
-        user_id=current_user.id,
-        payment_data=payment_data
+    if sucesso:
+        status_pagamento = "paid"
+        id_pagamento = f"PAY-{uuid.uuid4().hex[:16].upper()}"
+        id_transacao = f"TXN-{uuid.uuid4().hex[:16].upper()}"
+    else:
+        status_pagamento = "failed"
+        id_pagamento = f"PAY-{uuid.uuid4().hex[:16].upper()}"
+        id_transacao = None
+    
+    # Criar registro de pagamento
+    pagamento_db = Payment.criar(
+        db,
+        appointment_id=pagamento.appointment_id,
+        user_id=usuario_atual.id,
+        amount=valor,
+        payment_method=pagamento.payment_method,
+        status=status_pagamento,
+        payment_id=id_pagamento,
+        transaction_id=id_transacao
     )
     
     # Atualizar status do agendamento
-    appointment.payment_status = payment_result["status"]
-    appointment.payment_id = payment_result["payment_id"]
+    agendamento.atualizar(db, payment_status=status_pagamento, payment_id=id_pagamento)
     
-    if payment_result["status"] == "paid":
-        # Agendamento já está confirmado pelo psicólogo, apenas processar pagamento
-        # Processar pagamento e atualizar saldo
-        PaymentService.process_payment_success(db=db, payment=db_payment, appointment=appointment)
-    else:
-        db.commit()
-        db.refresh(db_payment)
+    if status_pagamento == "paid":
+        # Processar pagamento e atualizar saldo do psicólogo (80% para o psicólogo, 20% para a plataforma)
+        parte_psicologo = valor * 0.80
+        psicologo.atualizar(db, balance=(psicologo.balance or 0.0) + parte_psicologo)
+        
+        # Criar notificação para o psicólogo
+        Notification.criar(
+            db,
+            user_id=psicologo.user_id,
+            title="Novo Pagamento Recebido",
+            message=f"Você recebeu R$ {parte_psicologo:.2f} de uma consulta.",
+            type="payment",
+            related_id=pagamento_db.id,
+            related_type="payment",
+            is_read=False
+        )
+        
+        # Criar notificação para o cliente
+        Notification.criar(
+            db,
+            user_id=agendamento.user_id,
+            title="Pagamento Confirmado",
+            message="Seu pagamento foi processado com sucesso.",
+            type="payment",
+            related_id=pagamento_db.id,
+            related_type="payment",
+            is_read=False
+        )
     
-    return db_payment
+    return pagamento_db
 
-@router.get("/appointment/{appointment_id}", response_model=PaymentResponse)
-def get_payment_by_appointment(
-    appointment_id: int,
+@router.get("/agendamento/{id_agendamento}", response_model=PaymentResponse)
+def obter_pagamento_por_agendamento(
+    id_agendamento: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
-    """Obter pagamento por appointment_id"""
-    payment = PaymentService.get_payment_by_appointment_id(
-        db=db,
-        appointment_id=appointment_id
-    )
+    """Obter pagamento por id_agendamento"""
+    pagamento = Payment.obter_por_agendamento(db, id_agendamento)
     
-    if not payment:
+    if not pagamento:
         raise HTTPException(
             status_code=404,
-            detail="Payment not found"
+            detail="Pagamento não encontrado"
         )
     
     # Verificar permissão
-    appointment = db.query(Appointment).filter(
-        Appointment.id == appointment_id
-    ).first()
+    agendamento = Appointment.obter_por_id(db, id_agendamento)
     
-    if not appointment:
+    if not agendamento:
         raise HTTPException(
             status_code=404,
-            detail="Appointment not found"
+            detail="Agendamento não encontrado"
         )
     
-    if appointment.user_id != current_user.id:
+    if agendamento.user_id != usuario_atual.id:
         # Verificar se é psicólogo do agendamento
-        psychologist = db.query(Psychologist).filter(
-            Psychologist.user_id == current_user.id
-        ).first()
+        psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
         
-        if not psychologist or appointment.psychologist_id != psychologist.id:
+        if not psicologo or agendamento.psychologist_id != psicologo.id:
             raise HTTPException(
                 status_code=403,
-                detail="You don't have permission to view this payment"
+                detail="Você não tem permissão para visualizar este pagamento"
             )
     
-    return payment
+    return pagamento
 
-@router.get("/my-payments", response_model=List[PaymentResponse])
-def get_my_payments(
+@router.get("/meus-pagamentos", response_model=List[PaymentResponse])
+def obter_meus_pagamentos(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus pagamentos"""
-    payments = PaymentService.get_payments_by_user(
-        db=db,
-        user_id=current_user.id
-    )
-    return payments
+    pagamentos = Payment.listar_por_usuario(db, usuario_atual.id)
+    return pagamentos
 
-@router.post("/{payment_id}/refund", response_model=PaymentResponse)
-def refund_payment(
-    payment_id: int,
+@router.post("/{id_pagamento}/reembolsar", response_model=PaymentResponse)
+def reembolsar_pagamento(
+    id_pagamento: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Reembolsar pagamento"""
-    payment = PaymentService.refund_payment(
-        db=db,
-        payment_id=payment_id,
-        user_id=current_user.id
-    )
+    pagamento = Payment.obter_por_id(db, id_pagamento)
     
-    if not payment:
+    if not pagamento or pagamento.user_id != usuario_atual.id or pagamento.status != "paid":
         raise HTTPException(
             status_code=404,
-            detail="Payment not found or cannot be refunded"
+            detail="Pagamento não encontrado ou não pode ser reembolsado"
         )
     
-    return payment
+    transaction_id_refund = f"{pagamento.transaction_id}-REFUND" if pagamento.transaction_id else "REFUND"
+    pagamento.atualizar(db, status="refunded", transaction_id=transaction_id_refund)
+    
+    # Atualizar agendamento
+    agendamento = Appointment.obter_por_id(db, pagamento.appointment_id)
+    
+    if agendamento:
+        agendamento.atualizar(db, payment_status="refunded", status="cancelled")
+    
+    return pagamento
 
-@router.get("/financial-history", response_model=List[PaymentResponse])
-def get_financial_history(
+@router.get("/historico-financeiro", response_model=List[PaymentResponse])
+def obter_historico_financeiro(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter histórico financeiro (para psicólogos)"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view financial history"
+            detail="Apenas psicólogos podem visualizar histórico financeiro"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    payments = PaymentService.get_financial_history(
-        db=db,
-        psychologist_id=psychologist.id
-    )
+    # Obter agendamentos do psicólogo
+    agendamentos = Appointment.listar_por_psicologo(db, psicologo.id)
     
-    return payments
+    ids_agendamentos = [ag.id for ag in agendamentos]
+    
+    # Filtrar pagamentos pagos dos agendamentos do psicólogo
+    pagamentos = Payment.listar_por_usuario(db, usuario_atual.id)
+    pagamentos = [p for p in pagamentos if p.appointment_id in ids_agendamentos and p.status == 'paid']
+    
+    return pagamentos
 
-@router.get("/balance")
-def get_balance(
+@router.get("/saldo")
+def obter_saldo(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saldo disponível (para psicólogos)"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view balance"
+            detail="Apenas psicólogos podem visualizar saldo"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
     return {
-        "balance": psychologist.balance or 0.0,
-        "psychologist_id": psychologist.id
+        "balance": psicologo.balance or 0.0,
+        "psychologist_id": psicologo.id
     }
 

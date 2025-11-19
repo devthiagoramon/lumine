@@ -8,76 +8,107 @@ from app.database import get_db
 from app import auth
 from app.schemas import PsychologistListItem
 from app.models.user import User
-from app.services.favorite_service import FavoriteService
+from app.models.psychologist import Psychologist
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 
-@router.post("/{psychologist_id}", status_code=status.HTTP_201_CREATED)
-def add_favorite(
-    psychologist_id: int,
+@router.post("/{id_psicologo}", status_code=status.HTTP_201_CREATED)
+def adicionar_favorito(
+    id_psicologo: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Adicionar psicólogo aos favoritos"""
-    success = FavoriteService.add_favorite(
-        db=db,
-        user_id=current_user.id,
-        psychologist_id=psychologist_id
-    )
+    usuario = User.obter_por_id(db, usuario_atual.id)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
     
-    if not success:
-        raise HTTPException(
-            status_code=400,
-            detail="Psychologist not found or already in favorites"
-        )
+    psicologo = Psychologist.obter_por_id(db, id_psicologo)
     
-    return {"message": "Psychologist added to favorites"}
-
-@router.delete("/{psychologist_id}", status_code=status.HTTP_204_NO_CONTENT)
-def remove_favorite(
-    psychologist_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
-):
-    """Remover psicólogo dos favoritos"""
-    success = FavoriteService.remove_favorite(
-        db=db,
-        user_id=current_user.id,
-        psychologist_id=psychologist_id
-    )
-    
-    if not success:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found in favorites"
+            detail="Psicólogo não encontrado"
         )
     
+    # Recarregar com relacionamentos
+    usuario = usuario.obter_com_favoritos(db)
+    
+    if psicologo in usuario.favorite_psychologists:
+        raise HTTPException(
+            status_code=400,
+            detail="Psicólogo já está nos favoritos"
+        )
+    
+    usuario.favorite_psychologists.append(psicologo)
+    db.commit()
+    return {"message": "Psicólogo adicionado aos favoritos"}
+
+@router.delete("/{id_psicologo}", status_code=status.HTTP_204_NO_CONTENT)
+def remover_favorito(
+    id_psicologo: int,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Remover psicólogo dos favoritos"""
+    usuario = User.obter_por_id(db, usuario_atual.id)
+    if not usuario:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+    
+    psicologo = Psychologist.obter_por_id(db, id_psicologo)
+    
+    if not psicologo:
+        raise HTTPException(
+            status_code=404,
+            detail="Psicólogo não encontrado"
+        )
+    
+    # Recarregar com relacionamentos
+    usuario = usuario.obter_com_favoritos(db)
+    
+    if psicologo not in usuario.favorite_psychologists:
+        raise HTTPException(
+            status_code=404,
+            detail="Psicólogo não encontrado nos favoritos"
+        )
+    
+    usuario.favorite_psychologists.remove(psicologo)
+    db.commit()
     return None
 
 @router.get("/", response_model=List[PsychologistListItem])
-def get_favorites(
+def obter_favoritos(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter favoritos"""
-    favorites = FavoriteService.get_favorites(
-        db=db,
-        user_id=current_user.id
-    )
-    return favorites
+    usuario = User.obter_por_id(db, usuario_atual.id)
+    if not usuario:
+        return []
+    
+    # Recarregar com relacionamentos
+    usuario = usuario.obter_com_favoritos_completo(db)
+    
+    return usuario.favorite_psychologists if usuario else []
 
-@router.get("/check/{psychologist_id}")
-def check_favorite(
-    psychologist_id: int,
+@router.get("/verificar/{id_psicologo}")
+def verificar_favorito(
+    id_psicologo: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Verificar se psicólogo está nos favoritos"""
-    is_favorite = FavoriteService.is_favorite(
-        db=db,
-        user_id=current_user.id,
-        psychologist_id=psychologist_id
-    )
+    usuario = User.obter_por_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_id(db, id_psicologo)
     
-    return {"is_favorite": is_favorite}
+    if not usuario or not psicologo:
+        return {"is_favorite": False}
+    
+    # Recarregar com relacionamentos
+    usuario = usuario.obter_com_favoritos(db)
+    
+    eh_favorito = psicologo in usuario.favorite_psychologists if usuario else False
+    
+    return {"is_favorite": eh_favorito}
 

@@ -2,9 +2,10 @@
 User Model
 """
 from sqlalchemy import Column, Integer, String, Boolean, DateTime
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Session, joinedload
 from sqlalchemy.sql import func
-from app.database import Base
+from typing import Optional
+from app.database import Base, get_db_session
 from app.models.association_tables import favorites
 
 class User(Base):
@@ -32,4 +33,88 @@ class User(Base):
     notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", overlaps="notifications")
     questionnaires = relationship("Questionnaire", foreign_keys="Questionnaire.user_id", back_populates="user", overlaps="questionnaires")
     pre_registrations = relationship("PsychologistPreRegistration", foreign_keys="PsychologistPreRegistration.user_id", back_populates="user", overlaps="pre_registrations")
+    
+    # Métodos de acesso ao banco
+    @classmethod
+    def obter_por_id(cls, id_usuario: int) -> Optional["User"]:
+        """Obter usuário por ID"""
+        db = get_db_session()
+        try:
+            return db.query(cls).filter(cls.id == id_usuario).first()
+        finally:
+            db.close()
+    
+    @classmethod
+    def obter_por_email(cls, email: str) -> Optional["User"]:
+        """Obter usuário por email"""
+        db = get_db_session()
+        try:
+            return db.query(cls).filter(cls.email == email).first()
+        finally:
+            db.close()
+    
+    @classmethod
+    def criar(cls, **kwargs) -> "User":
+        """Criar novo usuário"""
+        db = get_db_session()
+        try:
+            usuario = cls(**kwargs)
+            db.add(usuario)
+            db.commit()
+            db.refresh(usuario)
+            return usuario
+        finally:
+            db.close()
+    
+    def atualizar(self, **kwargs) -> "User":
+        """Atualizar usuário"""
+        db = get_db_session()
+        try:
+            # Recarregar instância na sessão
+            usuario = db.query(User).filter(User.id == self.id).first()
+            if not usuario:
+                raise ValueError("Usuário não encontrado")
+            
+            for key, value in kwargs.items():
+                if hasattr(usuario, key):
+                    setattr(usuario, key, value)
+            db.commit()
+            db.refresh(usuario)
+            return usuario
+        finally:
+            db.close()
+    
+    def deletar(self) -> None:
+        """Deletar usuário"""
+        db = get_db_session()
+        try:
+            usuario = db.query(User).filter(User.id == self.id).first()
+            if usuario:
+                db.delete(usuario)
+                db.commit()
+        finally:
+            db.close()
+    
+    def obter_com_favoritos(self):
+        """Obter usuário com relacionamento de favoritos carregado"""
+        db = get_db_session()
+        try:
+            return db.query(User).options(
+                joinedload(User.favorite_psychologists)
+            ).filter(User.id == self.id).first()
+        finally:
+            db.close()
+    
+    def obter_com_favoritos_completo(self):
+        """Obter usuário com favoritos e seus relacionamentos completos"""
+        from app.models.psychologist import Psychologist
+        db = get_db_session()
+        try:
+            return db.query(User).options(
+                joinedload(User.favorite_psychologists).joinedload(Psychologist.user),
+                joinedload(User.favorite_psychologists).joinedload(Psychologist.specialties),
+                joinedload(User.favorite_psychologists).joinedload(Psychologist.approaches)
+            ).filter(User.id == self.id).first()
+        finally:
+            db.close()
 

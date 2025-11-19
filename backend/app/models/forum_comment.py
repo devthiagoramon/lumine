@@ -2,9 +2,10 @@
 ForumComment Model
 """
 from sqlalchemy import Column, Integer, Text, Boolean, DateTime, ForeignKey
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import relationship, Session, joinedload
 from sqlalchemy.sql import func
-from app.database import Base
+from typing import Optional, List
+from app.database import Base, get_db_session
 
 class ForumComment(Base):
     __tablename__ = "forum_comments"
@@ -20,4 +21,66 @@ class ForumComment(Base):
     
     post = relationship("ForumPost", back_populates="comments")
     user = relationship("User", foreign_keys=[user_id], back_populates="forum_comments", overlaps="forum_comments")
+    
+    # Métodos de acesso ao banco
+    @classmethod
+    def listar_por_post(cls, post_id: int) -> List["ForumComment"]:
+        """Listar comentários de um post"""
+        db = get_db_session()
+        try:
+            return db.query(cls).options(
+                joinedload(cls.user)
+            ).filter(cls.post_id == post_id).order_by(cls.created_at.asc()).all()
+        finally:
+            db.close()
+    
+    @classmethod
+    def obter_por_id_com_relacionamentos(cls, id_comentario: int) -> Optional["ForumComment"]:
+        """Obter comentário por ID com relacionamentos"""
+        db = get_db_session()
+        try:
+            return db.query(cls).options(joinedload(cls.user)).filter(cls.id == id_comentario).first()
+        finally:
+            db.close()
+    
+    @classmethod
+    def criar(cls, **kwargs) -> "ForumComment":
+        """Criar novo comentário"""
+        db = get_db_session()
+        try:
+            comentario = cls(**kwargs)
+            db.add(comentario)
+            db.commit()
+            db.refresh(comentario)
+            return comentario
+        finally:
+            db.close()
+    
+    def atualizar(self, **kwargs) -> "ForumComment":
+        """Atualizar comentário"""
+        db = get_db_session()
+        try:
+            comentario = db.query(ForumComment).filter(ForumComment.id == self.id).first()
+            if not comentario:
+                raise ValueError("Comentário não encontrado")
+            
+            for key, value in kwargs.items():
+                if hasattr(comentario, key):
+                    setattr(comentario, key, value)
+            db.commit()
+            db.refresh(comentario)
+            return comentario
+        finally:
+            db.close()
+    
+    def deletar(self) -> None:
+        """Deletar comentário"""
+        db = get_db_session()
+        try:
+            comentario = db.query(ForumComment).filter(ForumComment.id == self.id).first()
+            if comentario:
+                db.delete(comentario)
+                db.commit()
+        finally:
+            db.close()
 

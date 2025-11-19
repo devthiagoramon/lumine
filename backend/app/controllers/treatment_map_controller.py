@@ -7,8 +7,6 @@ from typing import List, Optional
 from app.database import get_db
 from app.schemas.psychologist import PsychologistListItem
 from app.models.psychologist import Psychologist
-from app.models.specialty import Specialty
-from app.models.approach import Approach
 from pydantic import BaseModel
 
 router = APIRouter()
@@ -30,40 +28,21 @@ class TreatmentMapResponse(BaseModel):
     total: int
 
 @router.get("/", response_model=TreatmentMapResponse)
-def get_treatment_map(
-    city: Optional[str] = Query(None),
-    state: Optional[str] = Query(None),
-    specialty_id: Optional[int] = Query(None),
-    approach_id: Optional[int] = Query(None),
+def obter_mapa_tratamento(
+    cidade: Optional[str] = Query(None),
+    estado: Optional[str] = Query(None),
+    id_especialidade: Optional[int] = Query(None),
+    id_abordagem: Optional[int] = Query(None),
     db: Session = Depends(get_db)
 ):
     """Obter mapa interativo de tratamentos"""
-    query = db.query(Psychologist).options(
-        joinedload(Psychologist.user),
-        joinedload(Psychologist.specialties),
-        joinedload(Psychologist.approaches)
-    ).filter(
-        Psychologist.is_verified == True
+    psychologists = Psychologist.buscar_para_mapa(
+        db,
+        cidade=cidade,
+        estado=estado,
+        id_especialidade=id_especialidade,
+        id_abordagem=id_abordagem
     )
-    
-    # Filtros
-    if city:
-        query = query.filter(Psychologist.city.ilike(f"%{city}%"))
-    
-    if state:
-        query = query.filter(Psychologist.state.ilike(f"%{state}%"))
-    
-    if specialty_id:
-        query = query.join(Psychologist.specialties).filter(
-            Specialty.id == specialty_id
-        )
-    
-    if approach_id:
-        query = query.join(Psychologist.approaches).filter(
-            Approach.id == approach_id
-        )
-    
-    psychologists = query.all()
     
     points = []
     for psych in psychologists:

@@ -9,107 +9,109 @@ from app import auth
 from app.schemas import ReviewCreate, ReviewResponse
 from app.models.user import User
 from app.models.psychologist import Psychologist
-from app.services.review_service import ReviewService
+from app.models.review import Review
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 
 @router.post("/", response_model=ReviewResponse, status_code=status.HTTP_201_CREATED)
-def create_review(
-    review: ReviewCreate,
+def criar_avaliacao(
+    avaliacao: ReviewCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar avaliação"""
     # Verificar se psicólogo existe
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.id == review.psychologist_id
-    ).first()
-    if not psychologist:
+    psicologo = Psychologist.obter_por_id(db, avaliacao.psychologist_id)
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
     # Verificar se já avaliou
-    from app.models.review import Review
-    existing_review = db.query(Review).filter(
-        Review.psychologist_id == review.psychologist_id,
-        Review.user_id == current_user.id
-    ).first()
-    if existing_review:
+    avaliacao_existente = Review.verificar_existente(db, avaliacao.psychologist_id, usuario_atual.id)
+    if avaliacao_existente:
         raise HTTPException(
             status_code=400,
-            detail="You have already reviewed this psychologist"
+            detail="Você já avaliou este psicólogo"
         )
     
     # Validar rating
-    if review.rating < 1 or review.rating > 5:
+    if avaliacao.rating < 1 or avaliacao.rating > 5:
         raise HTTPException(
             status_code=400,
-            detail="Rating must be between 1 and 5"
+            detail="Avaliação deve estar entre 1 e 5"
         )
     
-    # Criar review usando service
-    db_review = ReviewService.create_review(
-        db=db,
-        psychologist_id=review.psychologist_id,
-        user_id=current_user.id,
-        rating=review.rating,
-        comment=review.comment
+    # Criar avaliação
+    avaliacao_db = Review.criar(
+        db,
+        psychologist_id=avaliacao.psychologist_id,
+        user_id=usuario_atual.id,
+        rating=avaliacao.rating,
+        comment=avaliacao.comment
     )
     
-    # Recarregar com relacionamentos
-    from sqlalchemy.orm import joinedload
-    db_review = db.query(Review).options(
-        joinedload(Review.user)
-    ).filter(Review.id == db_review.id).first()
+    # Atualizar rating do psicólogo
+    media_rating = Review.calcular_rating_medio(db, avaliacao.psychologist_id)
+    total_avaliacoes = Review.contar_total(db, avaliacao.psychologist_id)
     
-    return db_review
+    psicologo.atualizar(db, rating=media_rating, total_reviews=total_avaliacoes)
+    
+    # Recarregar com relacionamentos
+    avaliacao_db = Review.obter_por_id(db, avaliacao_db.id, carregar_relacionamentos=True)
+    
+    return avaliacao_db
 
-@router.get("/psychologist/{psychologist_id}", response_model=List[ReviewResponse])
-def get_psychologist_reviews(
-    psychologist_id: int,
-    skip: int = 0,
-    limit: int = 20,
+@router.get("/psicologo/{id_psicologo}", response_model=List[ReviewResponse])
+def obter_avaliacoes_psicologo(
+    id_psicologo: int,
+    pular: int = 0,
+    limite: int = 20,
     db: Session = Depends(get_db)
 ):
     """Obter avaliações de um psicólogo"""
-    reviews = ReviewService.get_reviews_by_psychologist(
-        db=db,
-        psychologist_id=psychologist_id,
-        skip=skip,
-        limit=limit
-    )
-    return reviews
+    avaliacoes = Review.listar_por_psicologo(db, id_psicologo)
+    # Aplicar paginação manualmente (os métodos dos models retornam todas)
+    avaliacoes = avaliacoes[pular:pular+limite]
+    return avaliacoes
 
-@router.get("/my-reviews", response_model=List[ReviewResponse])
-def get_my_reviews(
+@router.get("/minhas-avaliacoes", response_model=List[ReviewResponse])
+def obter_minhas_avaliacoes(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter minhas avaliações"""
-    reviews = ReviewService.get_reviews_by_user(
-        db=db,
-        user_id=current_user.id
-    )
-    return reviews
+    avaliacoes = Review.listar_por_usuario(db, usuario_atual.id)
+    return avaliacoes
 
-@router.delete("/{review_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_review(
-    review_id: int,
+@router.delete("/{id_avaliacao}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_avaliacao(
+    id_avaliacao: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar avaliação"""
-    success = ReviewService.delete_review(
-        db=db,
-        review_id=review_id,
-        user_id=current_user.id
-    )
-    if not success:
+    avaliacao = Review.obter_por_id(db, id_avaliacao)
+    
+    if not avaliacao or avaliacao.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=404,
-            detail="Review not found"
+            detail="Avaliação não encontrada"
         )
+    
+    id_psicologo = avaliacao.psychologist_id
+    avaliacao.deletar(db)
+    
+    # Atualizar rating do psicólogo
+    psicologo = Psychologist.obter_por_id(db, id_psicologo)
+    
+    if psicologo:
+        media_rating = Review.calcular_rating_medio(db, id_psicologo)
+        total_avaliacoes = Review.contar_total(db, id_psicologo)
+        
+        psicologo.atualizar(db, rating=media_rating, total_reviews=total_avaliacoes)
+    
     return None
 

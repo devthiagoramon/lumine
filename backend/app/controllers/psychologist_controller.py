@@ -11,146 +11,136 @@ from app.schemas import (
 )
 from app.models.user import User
 from app.models.psychologist import Psychologist
-from app.services.psychologist_service import PsychologistService
+from app.models.specialty import Specialty
+from app.models.approach import Approach
 
 router = APIRouter()
 
 @router.post("/", response_model=PsychologistResponse, status_code=status.HTTP_201_CREATED)
-def create_psychologist_profile(
-    psychologist: PsychologistCreate,
+def criar_perfil_psicologo(
+    psicologo: PsychologistCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar perfil de psicólogo"""
     # Verificar se usuário é psicólogo
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can create profiles"
+            detail="Apenas psicólogos podem criar perfis"
         )
     
     # Verificar se já tem perfil
-    existing = PsychologistService.get_psychologist_by_user_id(db, current_user.id, load_relationships=False)
-    if existing:
+    existente = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    if existente:
         raise HTTPException(
             status_code=400,
-            detail="Psychologist profile already exists"
+            detail="Perfil de psicólogo já existe"
         )
     
     # Verificar se CRP já existe
-    existing_crp = db.query(Psychologist).filter(
-        Psychologist.crp == psychologist.crp
-    ).first()
-    if existing_crp:
+    crp_existente = Psychologist.obter_por_crp(db, psicologo.crp)
+    if crp_existente:
         raise HTTPException(
             status_code=400,
-            detail="CRP already registered"
+            detail="CRP já registrado"
         )
     
     # Criar perfil
-    psychologist_data = psychologist.dict(exclude={"specialty_ids", "approach_ids"})
-    db_psychologist = PsychologistService.create_psychologist(
-        db=db,
-        user_id=current_user.id,
-        psychologist_data=psychologist_data,
-        specialty_ids=psychologist.specialty_ids,
-        approach_ids=psychologist.approach_ids
-    )
+    dados_psicologo = psicologo.dict(exclude={"specialty_ids", "approach_ids"})
+    psicologo_db = Psychologist.criar(db, user_id=usuario_atual.id, **dados_psicologo)
+    
+    # Adicionar especialidades
+    if psicologo.specialty_ids:
+        especialidades = Specialty.obter_por_ids(db, psicologo.specialty_ids)
+        psicologo_db.specialties = especialidades
+    
+    # Adicionar abordagens
+    if psicologo.approach_ids:
+        abordagens = Approach.obter_por_ids(db, psicologo.approach_ids)
+        psicologo_db.approaches = abordagens
+    
+    db.commit()
+    db.refresh(psicologo_db)
     
     # Recarregar com relacionamentos
-    db_psychologist = PsychologistService.get_psychologist_by_id(
-        db=db,
-        psychologist_id=db_psychologist.id,
-        load_relationships=True
-    )
+    psicologo_db = Psychologist.obter_por_id(db, psicologo_db.id, carregar_relacionamentos=True)
     
-    return db_psychologist
+    return psicologo_db
 
 @router.get("/me", response_model=PsychologistResponse)
-def get_my_profile(
+def obter_meu_perfil(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meu perfil de psicólogo"""
-    psychologist = PsychologistService.get_psychologist_by_user_id(
-        db=db,
-        user_id=current_user.id,
-        load_relationships=True
-    )
-    if not psychologist:
+    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
-    return psychologist
+    # Recarregar com relacionamentos
+    psicologo = Psychologist.obter_por_id(db, psicologo.id, carregar_relacionamentos=True)
+    return psicologo
 
 @router.put("/me", response_model=PsychologistResponse)
-def update_my_profile(
-    psychologist_update: PsychologistUpdate,
+def atualizar_meu_perfil(
+    atualizacao_psicologo: PsychologistUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar meu perfil de psicólogo"""
-    psychologist = PsychologistService.get_psychologist_by_user_id(
-        db=db,
-        user_id=current_user.id,
-        load_relationships=False
-    )
-    if not psychologist:
+    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
     # Atualizar campos
-    update_data = psychologist_update.dict(exclude_unset=True, exclude={"specialty_ids", "approach_ids"})
-    db_psychologist = PsychologistService.update_psychologist(
-        db=db,
-        psychologist=psychologist,
-        update_data=update_data,
-        specialty_ids=psychologist_update.specialty_ids,
-        approach_ids=psychologist_update.approach_ids
-    )
+    dados_atualizacao = atualizacao_psicologo.dict(exclude_unset=True, exclude={"specialty_ids", "approach_ids"})
+    psicologo.atualizar(db, **dados_atualizacao)
+    
+    # Atualizar especialidades
+    if atualizacao_psicologo.specialty_ids is not None:
+        especialidades = Specialty.obter_por_ids(db, atualizacao_psicologo.specialty_ids)
+        psicologo.specialties = especialidades
+    
+    # Atualizar abordagens
+    if atualizacao_psicologo.approach_ids is not None:
+        abordagens = Approach.obter_por_ids(db, atualizacao_psicologo.approach_ids)
+        psicologo.approaches = abordagens
+    
+    db.commit()
+    db.refresh(psicologo)
     
     # Recarregar com relacionamentos
-    db_psychologist = PsychologistService.get_psychologist_by_id(
-        db=db,
-        psychologist_id=db_psychologist.id,
-        load_relationships=True
-    )
+    psicologo_db = Psychologist.obter_por_id(db, psicologo.id, carregar_relacionamentos=True)
     
-    return db_psychologist
+    return psicologo_db
 
-@router.get("/{psychologist_id}", response_model=PsychologistResponse)
-def get_psychologist(
-    psychologist_id: int,
+@router.get("/{id_psicologo}", response_model=PsychologistResponse)
+def obter_psicologo(
+    id_psicologo: int,
     db: Session = Depends(get_db)
 ):
     """Obter psicólogo por ID"""
-    psychologist = PsychologistService.get_psychologist_by_id(
-        db=db,
-        psychologist_id=psychologist_id,
-        load_relationships=True
-    )
-    if not psychologist:
+    psicologo = Psychologist.obter_por_id(db, id_psicologo, carregar_relacionamentos=True)
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
-    return psychologist
+    return psicologo
 
 @router.get("/", response_model=List[PsychologistListItem])
-def list_psychologists(
-    skip: int = 0,
-    limit: int = 20,
+def listar_psicologos(
+    pular: int = 0,
+    limite: int = 20,
     db: Session = Depends(get_db)
 ):
     """Listar psicólogos"""
-    psychologists = PsychologistService.list_psychologists(
-        db=db,
-        skip=skip,
-        limit=limit,
-        load_relationships=True
-    )
-    return psychologists
+    psicologos = Psychologist.listar_verificados(db, pular=pular, limite=limite)
+    return psicologos
 

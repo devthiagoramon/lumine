@@ -2,325 +2,285 @@
 Appointment Controller - Endpoints de agendamentos
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from datetime import datetime
-from app.database import get_db
+from datetime import datetime, timezone
 from app import auth
 from app.schemas import AppointmentCreate, AppointmentUpdate, AppointmentResponse
 from app.models.user import User
 from app.models.psychologist import Psychologist
 from app.models.appointment import Appointment
-from app.services.appointment_service import AppointmentService
-from app.services.notification_service import NotificationService
+from app.models.notification import Notification
 
 router = APIRouter()
 
 @router.post("/", response_model=AppointmentResponse, status_code=status.HTTP_201_CREATED)
-def create_appointment(
-    appointment: AppointmentCreate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+def criar_agendamento(
+    agendamento: AppointmentCreate,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar agendamento"""
     # Verificar se psicólogo existe
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.id == appointment.psychologist_id
-    ).first()
-    if not psychologist:
+    psicologo = Psychologist.obter_por_id(agendamento.psychologist_id)
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
     # Validar data
-    if not AppointmentService.validate_appointment_date(appointment.appointment_date):
+    data_agendamento = agendamento.appointment_date
+    if data_agendamento.tzinfo is None:
+        data_agendamento = data_agendamento.replace(tzinfo=timezone.utc)
+    agora = datetime.now(timezone.utc)
+    if data_agendamento <= agora:
         raise HTTPException(
             status_code=400,
-            detail="Appointment date must be in the future"
+            detail="Data do agendamento deve ser no futuro"
         )
     
     # Validar tipo de consulta
-    if not AppointmentService.validate_consultation_type(psychologist, appointment.appointment_type):
-        consultation_type = "online" if appointment.appointment_type == 'online' else "presencial"
-        raise HTTPException(
-            status_code=400,
-            detail=f"This psychologist does not offer {consultation_type} consultations"
-        )
+    if agendamento.appointment_type == 'online':
+        if not psicologo.online_consultation:
+            raise HTTPException(
+                status_code=400,
+                detail="Este psicólogo não oferece consultas online"
+            )
+    elif agendamento.appointment_type == 'presencial':
+        if not psicologo.in_person_consultation:
+            raise HTTPException(
+                status_code=400,
+                detail="Este psicólogo não oferece consultas presenciais"
+            )
     
-    # Criar agendamento usando service
-    appointment_data = {
-        "appointment_date": appointment.appointment_date,
-        "appointment_type": appointment.appointment_type,
-        "notes": appointment.notes
-    }
-    db_appointment = AppointmentService.create_appointment(
-        db=db,
-        psychologist_id=appointment.psychologist_id,
-        user_id=current_user.id,
-        appointment_data=appointment_data
+    # Criar agendamento
+    agendamento_db = Appointment.criar(
+        psychologist_id=agendamento.psychologist_id,
+        user_id=usuario_atual.id,
+        appointment_date=agendamento.appointment_date,
+        appointment_type=agendamento.appointment_type,
+        notes=agendamento.notes,
+        status='pending'
     )
     
     # Criar notificação para o psicólogo
-    NotificationService.create_notification(
-        db=db,
-        user_id=psychologist.user_id,
+    Notification.criar(
+        user_id=psicologo.user_id,
         title="Novo Agendamento Solicitado",
-        message=f"Você recebeu uma nova solicitação de agendamento de {current_user.full_name}.",
+        message=f"Você recebeu uma nova solicitação de agendamento de {usuario_atual.full_name}.",
         type="appointment",
-        related_id=db_appointment.id,
-        related_type="appointment"
+        related_id=agendamento_db.id,
+        related_type="appointment",
+        is_read=False
     )
     
     # Recarregar com relacionamentos
-    db_appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=db_appointment.id,
-        load_relationships=True
-    )
+    agendamento_db = Appointment.obter_por_id(agendamento_db.id, carregar_relacionamentos=True)
     
-    return db_appointment
+    return agendamento_db
 
-@router.get("/my-appointments", response_model=List[AppointmentResponse])
-def get_my_appointments(
-    status_filter: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.get("/meus-agendamentos", response_model=List[AppointmentResponse])
+def obter_meus_agendamentos(
+    filtro_status: Optional[str] = None,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus agendamentos"""
-    appointments = AppointmentService.get_appointments_by_user(
-        db=db,
-        user_id=current_user.id,
-        status_filter=status_filter,
-        load_relationships=True
-    )
-    return appointments
+    agendamentos = Appointment.listar_por_usuario(usuario_atual.id, status=filtro_status)
+    return agendamentos
 
-@router.get("/psychologist-appointments", response_model=List[AppointmentResponse])
-def get_psychologist_appointments(
-    status_filter: Optional[str] = None,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.get("/agendamentos-psicologo", response_model=List[AppointmentResponse])
+def obter_agendamentos_psicologo(
+    filtro_status: Optional[str] = None,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter agendamentos do psicólogo"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view their appointments"
+            detail="Apenas psicólogos podem visualizar seus agendamentos"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    appointments = AppointmentService.get_appointments_by_psychologist(
-        db=db,
-        psychologist_id=psychologist.id,
-        status_filter=status_filter,
-        load_relationships=True
-    )
-    
-    return appointments
+    agendamentos = Appointment.listar_por_psicologo(psicologo.id, status=filtro_status)
+    return agendamentos
 
-@router.get("/{appointment_id}", response_model=AppointmentResponse)
-def get_appointment(
-    appointment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.get("/{id_agendamento}", response_model=AppointmentResponse)
+def obter_agendamento(
+    id_agendamento: int,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter agendamento por ID"""
-    appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=appointment_id,
-        load_relationships=True
-    )
+    agendamento = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
     
-    if not appointment:
+    if not agendamento:
         raise HTTPException(
             status_code=404,
-            detail="Appointment not found"
+            detail="Agendamento não encontrado"
         )
     
     # Verificar permissão
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if appointment.user_id != current_user.id and (not psychologist or appointment.psychologist_id != psychologist.id):
+    if agendamento.user_id != usuario_atual.id and (not psicologo or agendamento.psychologist_id != psicologo.id):
         raise HTTPException(
             status_code=403,
-            detail="You don't have permission to view this appointment"
+            detail="Você não tem permissão para visualizar este agendamento"
         )
     
-    return appointment
+    return agendamento
 
-@router.put("/{appointment_id}", response_model=AppointmentResponse)
-def update_appointment(
-    appointment_id: int,
-    appointment_update: AppointmentUpdate,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.put("/{id_agendamento}", response_model=AppointmentResponse)
+def atualizar_agendamento(
+    id_agendamento: int,
+    atualizacao_agendamento: AppointmentUpdate,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar agendamento"""
-    appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=appointment_id,
-        load_relationships=False
-    )
+    agendamento = Appointment.obter_por_id(id_agendamento)
     
-    if not appointment:
+    if not agendamento:
         raise HTTPException(
             status_code=404,
-            detail="Appointment not found"
+            detail="Agendamento não encontrado"
         )
     
     # Verificar permissão
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    can_update = (
-        appointment.user_id == current_user.id or
-        (psychologist and appointment.psychologist_id == psychologist.id)
+    pode_atualizar = (
+        agendamento.user_id == usuario_atual.id or
+        (psicologo and agendamento.psychologist_id == psicologo.id)
     )
     
-    if not can_update:
+    if not pode_atualizar:
         raise HTTPException(
             status_code=403,
-            detail="You don't have permission to update this appointment"
+            detail="Você não tem permissão para atualizar este agendamento"
         )
     
-    # Atualizar usando service
-    update_data = appointment_update.dict(exclude_unset=True)
-    db_appointment = AppointmentService.update_appointment(
-        db=db,
-        appointment=appointment,
-        update_data=update_data
-    )
+    # Atualizar campos
+    dados_atualizacao = atualizacao_agendamento.dict(exclude_unset=True)
+    agendamento.atualizar(**dados_atualizacao)
     
     # Recarregar com relacionamentos
-    db_appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=appointment_id,
-        load_relationships=True
-    )
+    agendamento_db = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
     
-    return db_appointment
+    return agendamento_db
 
-@router.delete("/{appointment_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_appointment(
-    appointment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.delete("/{id_agendamento}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_agendamento(
+    id_agendamento: int,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar agendamento"""
-    success = AppointmentService.delete_appointment(
-        db=db,
-        appointment_id=appointment_id,
-        user_id=current_user.id
-    )
+    agendamento = Appointment.obter_por_id(id_agendamento)
     
-    if not success:
+    if not agendamento or agendamento.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=404,
-            detail="Appointment not found"
+            detail="Agendamento não encontrado"
         )
+    
+    agendamento.deletar()
     
     return None
 
-@router.post("/{appointment_id}/confirm", response_model=AppointmentResponse)
-def confirm_appointment(
-    appointment_id: int,
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.post("/{id_agendamento}/confirmar", response_model=AppointmentResponse)
+def confirmar_agendamento(
+    id_agendamento: int,
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Confirmar agendamento (apenas psicólogo)"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can confirm appointments"
+            detail="Apenas psicólogos podem confirmar agendamentos"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    appointment = AppointmentService.confirm_appointment(
-        db=db,
-        appointment_id=appointment_id,
-        psychologist_id=psychologist.id
+    agendamento = Appointment.obter_por_id(id_agendamento)
+    
+    if not agendamento or agendamento.psychologist_id != psicologo.id:
+        raise HTTPException(
+            status_code=404,
+            detail="Agendamento não encontrado"
+        )
+    
+    agendamento.atualizar(status='confirmed')
+    
+    # Criar notificação para o cliente
+    Notification.criar(
+        user_id=agendamento.user_id,
+        title="Agendamento Confirmado",
+        message=f"Seu agendamento foi confirmado pelo psicólogo.",
+        type="appointment",
+        related_id=agendamento.id,
+        related_type="appointment",
+        is_read=False
     )
-    
-    if not appointment:
-        raise HTTPException(
-            status_code=404,
-            detail="Appointment not found"
-        )
     
     # Recarregar com relacionamentos
-    appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=appointment_id,
-        load_relationships=True
-    )
+    agendamento = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
     
-    return appointment
+    return agendamento
 
-@router.post("/{appointment_id}/reject", response_model=AppointmentResponse)
-def reject_appointment(
-    appointment_id: int,
-    rejection_reason: str = Query(..., description="Motivo da recusa"),
-    db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+@router.post("/{id_agendamento}/recusar", response_model=AppointmentResponse)
+def recusar_agendamento(
+    id_agendamento: int,
+    motivo_recusa: str = Query(..., description="Motivo da recusa"),
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Recusar agendamento (apenas psicólogo)"""
-    if not current_user.is_psychologist:
+    if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can reject appointments"
+            detail="Apenas psicólogos podem recusar agendamentos"
         )
     
-    psychologist = db.query(Psychologist).filter(
-        Psychologist.user_id == current_user.id
-    ).first()
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    appointment = AppointmentService.reject_appointment(
-        db=db,
-        appointment_id=appointment_id,
-        psychologist_id=psychologist.id,
-        rejection_reason=rejection_reason
+    agendamento = Appointment.obter_por_id(id_agendamento)
+    
+    if not agendamento or agendamento.psychologist_id != psicologo.id:
+        raise HTTPException(
+            status_code=404,
+            detail="Agendamento não encontrado"
+        )
+    
+    agendamento.atualizar(status='rejected', rejection_reason=motivo_recusa)
+    
+    # Criar notificação para o cliente
+    Notification.criar(
+        user_id=agendamento.user_id,
+        title="Agendamento Recusado",
+        message=f"Seu agendamento foi recusado. Motivo: {motivo_recusa}",
+        type="appointment",
+        related_id=agendamento.id,
+        related_type="appointment",
+        is_read=False
     )
-    
-    if not appointment:
-        raise HTTPException(
-            status_code=404,
-            detail="Appointment not found"
-        )
     
     # Recarregar com relacionamentos
-    appointment = AppointmentService.get_appointment_by_id(
-        db=db,
-        appointment_id=appointment_id,
-        load_relationships=True
-    )
+    agendamento = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
     
-    return appointment
+    return agendamento
 

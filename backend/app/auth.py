@@ -3,8 +3,6 @@ from typing import Optional
 from jose import JWTError, jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer
-from sqlalchemy.orm import Session
-from app.database import get_db
 from app.models.user import User
 import os
 from dotenv import load_dotenv
@@ -84,8 +82,8 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
 
-def authenticate_user(db: Session, email: str, password: str):
-    user = db.query(User).filter(User.email == email).first()
+def authenticate_user(email: str, password: str):
+    user = User.obter_por_email(email)
     if not user:
         return False
     if not verify_password(password, user.hashed_password):
@@ -93,8 +91,7 @@ def authenticate_user(db: Session, email: str, password: str):
     return user
 
 async def get_current_user(
-    token: str = Depends(oauth2_scheme),
-    db: Session = Depends(get_db)
+    token: str = Depends(oauth2_scheme)
 ):
     credentials_exception = HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,
@@ -108,7 +105,7 @@ async def get_current_user(
             raise credentials_exception
     except JWTError:
         raise credentials_exception
-    user = db.query(User).filter(User.email == email).first()
+    user = User.obter_por_email(email)
     if user is None:
         raise credentials_exception
     return user

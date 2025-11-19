@@ -12,79 +12,70 @@ from app.schemas import (
 )
 from app.models.user import User
 from app.models.emotion_diary import EmotionDiary
-from app.services.emotion_diary_service import EmotionDiaryService
 
 router = APIRouter()
 
 @router.post("/", response_model=EmotionDiaryResponse, status_code=status.HTTP_201_CREATED)
-def create_entry(
-    entry: EmotionDiaryCreate,
+def criar_entrada(
+    entrada: EmotionDiaryCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar entrada no diário"""
     # Validar intensidade
-    if entry.intensity < 1 or entry.intensity > 10:
+    if entrada.intensity < 1 or entrada.intensity > 10:
         raise HTTPException(
             status_code=400,
             detail="Intensity must be between 1 and 10"
         )
     
-    entry_data = entry.dict()
-    db_entry = EmotionDiaryService.create_entry(
-        db=db,
-        user_id=current_user.id,
-        entry_data=entry_data
+    db_entry = EmotionDiary.criar(
+        db,
+        user_id=usuario_atual.id,
+        date=entrada.date,
+        emotion=entrada.emotion,
+        intensity=entrada.intensity,
+        notes=entrada.notes,
+        tags=entrada.tags
     )
-    
     return db_entry
 
 @router.get("/", response_model=List[EmotionDiaryResponse])
-def get_entries(
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
-    emotion: Optional[str] = Query(None),
+def obter_entradas(
+    data_inicio: Optional[datetime] = Query(None),
+    data_fim: Optional[datetime] = Query(None),
+    emocao: Optional[str] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entradas do diário"""
-    entries = EmotionDiaryService.get_entries(
-        db=db,
-        user_id=current_user.id,
-        start_date=start_date,
-        end_date=end_date,
-        emotion=emotion
+    entries = EmotionDiary.listar_por_usuario(
+        db, usuario_atual.id, 
+        data_inicio=data_inicio, 
+        data_fim=data_fim, 
+        emocao=emocao
     )
     return entries
 
 @router.get("/stats")
-def get_stats(
-    start_date: Optional[datetime] = Query(None),
-    end_date: Optional[datetime] = Query(None),
+def obter_estatisticas(
+    data_inicio: Optional[datetime] = Query(None),
+    data_fim: Optional[datetime] = Query(None),
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter estatísticas do diário"""
-    stats = EmotionDiaryService.get_stats(
-        db=db,
-        user_id=current_user.id,
-        start_date=start_date,
-        end_date=end_date
-    )
+    stats = EmotionDiary.obter_estatisticas(db, usuario_atual.id, data_inicio=data_inicio, data_fim=data_fim)
     return stats
 
-@router.get("/{entry_id}", response_model=EmotionDiaryResponse)
-def get_entry(
-    entry_id: int,
+@router.get("/{id_entrada}", response_model=EmotionDiaryResponse)
+def obter_entrada(
+    id_entrada: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entrada por ID"""
-    entry = EmotionDiaryService.get_entry_by_id(
-        db=db,
-        entry_id=entry_id,
-        user_id=current_user.id
-    )
+    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
     
     if not entry:
         raise HTTPException(
@@ -94,19 +85,15 @@ def get_entry(
     
     return entry
 
-@router.put("/{entry_id}", response_model=EmotionDiaryResponse)
-def update_entry(
-    entry_id: int,
-    entry_update: EmotionDiaryUpdate,
+@router.put("/{id_entrada}", response_model=EmotionDiaryResponse)
+def atualizar_entrada(
+    id_entrada: int,
+    atualizacao_entrada: EmotionDiaryUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar entrada"""
-    entry = EmotionDiaryService.get_entry_by_id(
-        db=db,
-        entry_id=entry_id,
-        user_id=current_user.id
-    )
+    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
     
     if not entry:
         raise HTTPException(
@@ -115,45 +102,38 @@ def update_entry(
         )
     
     # Validar intensidade se fornecida
-    if entry_update.intensity is not None:
-        if entry_update.intensity < 1 or entry_update.intensity > 10:
+    if atualizacao_entrada.intensity is not None:
+        if atualizacao_entrada.intensity < 1 or atualizacao_entrada.intensity > 10:
             raise HTTPException(
                 status_code=400,
                 detail="Intensity must be between 1 and 10"
             )
     
-    update_data = entry_update.dict(exclude_unset=True)
-    db_entry = EmotionDiaryService.update_entry(
-        db=db,
-        entry=entry,
-        update_data=update_data
-    )
+    update_data = atualizacao_entrada.dict(exclude_unset=True)
+    entry.atualizar(db, **update_data)
     
-    return db_entry
+    return entry
 
-@router.delete("/{entry_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_entry(
-    entry_id: int,
+@router.delete("/{id_entrada}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_entrada(
+    id_entrada: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar entrada"""
-    success = EmotionDiaryService.delete_entry(
-        db=db,
-        entry_id=entry_id,
-        user_id=current_user.id
-    )
+    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
     
-    if not success:
+    if not entry:
         raise HTTPException(
             status_code=404,
             detail="Entry not found"
         )
     
+    entry.deletar(db)
     return None
 
 @router.get("/emotions/list")
-def get_emotions_list():
+def obter_lista_emocoes():
     """Obter lista de emoções"""
     return {
         "emotions": [

@@ -8,62 +8,55 @@ from app.database import get_db
 from app import auth
 from app.schemas import NotificationResponse
 from app.models.user import User
-from app.services.notification_service import NotificationService
+from app.models.notification import Notification
 
 router = APIRouter()
 
 @router.get("/", response_model=List[NotificationResponse])
-def get_notifications(
-    is_read: Optional[bool] = Query(None),
-    limit: int = Query(50, ge=1, le=100),
+def obter_notificacoes(
+    lida: Optional[bool] = Query(None),
+    limite: int = Query(50, ge=1, le=100),
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter notificações do usuário"""
-    notifications = NotificationService.get_user_notifications(
-        db=db,
-        user_id=current_user.id,
-        is_read=is_read,
-        limit=limit
-    )
-    return notifications
+    notificacoes = Notification.listar_por_usuario(db, usuario_atual.id, lida=lida, limite=limite)
+    return notificacoes
 
-@router.get("/unread-count")
-def get_unread_count(
+@router.get("/contagem-nao-lidas")
+def obter_contagem_nao_lidas(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter contagem de notificações não lidas"""
-    count = NotificationService.get_unread_count(db=db, user_id=current_user.id)
-    return {"unread_count": count}
+    contagem = Notification.contar_nao_lidas(db, usuario_atual.id)
+    return {"unread_count": contagem}
 
-@router.put("/{notification_id}/read", response_model=NotificationResponse)
-def mark_notification_as_read(
-    notification_id: int,
+@router.put("/{id_notificacao}/ler", response_model=NotificationResponse)
+def marcar_notificacao_como_lida(
+    id_notificacao: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Marcar notificação como lida"""
-    notification = NotificationService.mark_as_read(
-        db=db,
-        notification_id=notification_id,
-        user_id=current_user.id
-    )
+    notificacoes = Notification.listar_por_usuario(db, usuario_atual.id, limite=1000)
+    notificacao = next((n for n in notificacoes if n.id == id_notificacao), None)
     
-    if not notification:
+    if not notificacao:
         raise HTTPException(
             status_code=404,
-            detail="Notification not found"
+            detail="Notificação não encontrada"
         )
     
-    return notification
+    notificacao.marcar_como_lida(db)
+    return notificacao
 
-@router.put("/mark-all-read")
-def mark_all_as_read(
+@router.put("/marcar-todas-lidas")
+def marcar_todas_como_lidas(
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Marcar todas as notificações como lidas"""
-    count = NotificationService.mark_all_as_read(db=db, user_id=current_user.id)
-    return {"marked_count": count}
+    contagem = Notification.marcar_todas_como_lidas(db, usuario_atual.id)
+    return {"marked_count": contagem}
 

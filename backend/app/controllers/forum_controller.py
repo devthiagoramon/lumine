@@ -13,71 +13,50 @@ from app.schemas import (
 from app.models.user import User
 from app.models.forum_post import ForumPost
 from app.models.forum_comment import ForumComment
-from app.services.forum_service import ForumService
+from sqlalchemy.orm import joinedload
 
 router = APIRouter()
 
 @router.post("/posts", response_model=ForumPostResponse, status_code=status.HTTP_201_CREATED)
-def create_post(
+def criar_post(
     post: ForumPostCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar post no fórum"""
-    post_data = post.dict()
-    db_post = ForumService.create_post(
-        db=db,
-        user_id=current_user.id,
-        post_data=post_data
+    db_post = ForumPost.criar(
+        db,
+        user_id=usuario_atual.id,
+        title=post.title,
+        content=post.content,
+        category=post.category,
+        is_anonymous=post.is_anonymous
     )
     
-    # Recarregar com relacionamentos
-    from sqlalchemy.orm import joinedload
-    db_post = db.query(ForumPost).options(
-        joinedload(ForumPost.user)
-    ).filter(ForumPost.id == db_post.id).first()
-    
-    # Contar comentários
-    comments_count = ForumService.get_comments_count(db=db, post_id=db_post.id)
-    db_post.comments_count = comments_count
+    # Recarregar com relacionamentos e contagem de comentários
+    db_post = ForumPost.obter_por_id(db, db_post.id)
     
     return db_post
 
 @router.get("/posts", response_model=List[ForumPostResponse])
-def list_posts(
-    category: Optional[str] = Query(None),
-    search: Optional[str] = Query(None),
-    page: int = Query(1, ge=1),
-    page_size: int = Query(20, ge=1, le=100),
+def listar_posts(
+    categoria: Optional[str] = Query(None),
+    busca: Optional[str] = Query(None),
+    pagina: int = Query(1, ge=1),
+    tamanho_pagina: int = Query(20, ge=1, le=100),
     db: Session = Depends(get_db)
 ):
     """Listar posts do fórum"""
-    posts = ForumService.list_posts(
-        db=db,
-        category=category,
-        search=search,
-        page=page,
-        page_size=page_size
-    )
-    
-    # Adicionar contagem de comentários
-    for post in posts:
-        comments_count = ForumService.get_comments_count(db=db, post_id=post.id)
-        post.comments_count = comments_count
-    
+    posts = ForumPost.listar(db, categoria=categoria, busca=busca, pagina=pagina, tamanho_pagina=tamanho_pagina)
     return posts
 
-@router.get("/posts/{post_id}", response_model=ForumPostResponse)
-def get_post(
-    post_id: int,
+@router.get("/posts/{id_post}", response_model=ForumPostResponse)
+def obter_post(
+    id_post: int,
     db: Session = Depends(get_db)
 ):
     """Obter post por ID"""
-    post = ForumService.get_post_by_id(
-        db=db,
-        post_id=post_id,
-        increment_views=True
-    )
+    post = ForumPost.obter_por_id(db, id_post)
     
     if not post:
         raise HTTPException(
@@ -85,23 +64,19 @@ def get_post(
             detail="Post not found"
         )
     
-    # Contar comentários
-    comments_count = ForumService.get_comments_count(db=db, post_id=post.id)
-    post.comments_count = comments_count
+    post.incrementar_visualizacao(db)
     
     return post
 
-@router.put("/posts/{post_id}", response_model=ForumPostResponse)
-def update_post(
-    post_id: int,
-    post_update: ForumPostUpdate,
+@router.put("/posts/{id_post}", response_model=ForumPostResponse)
+def atualizar_post(
+    id_post: int,
+    atualizacao_post: ForumPostUpdate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar post"""
-    post = db.query(ForumPost).filter(
-        ForumPost.id == post_id
-    ).first()
+    post = ForumPost.obter_por_id(db, id_post)
     
     if not post:
         raise HTTPException(
@@ -109,97 +84,78 @@ def update_post(
             detail="Post not found"
         )
     
-    if post.user_id != current_user.id:
+    if post.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=403,
             detail="You can only edit your own posts"
         )
     
-    update_data = post_update.dict(exclude_unset=True)
-    db_post = ForumService.update_post(
-        db=db,
-        post=post,
-        update_data=update_data
-    )
+    update_data = atualizacao_post.dict(exclude_unset=True)
+    post.atualizar(db, **update_data)
     
     # Recarregar com relacionamentos
-    from sqlalchemy.orm import joinedload
-    db_post = db.query(ForumPost).options(
-        joinedload(ForumPost.user)
-    ).filter(ForumPost.id == post_id).first()
-    
-    comments_count = ForumService.get_comments_count(db=db, post_id=db_post.id)
-    db_post.comments_count = comments_count
+    db_post = ForumPost.obter_por_id(db, id_post)
     
     return db_post
 
-@router.delete("/posts/{post_id}", status_code=status.HTTP_204_NO_CONTENT)
-def delete_post(
-    post_id: int,
+@router.delete("/posts/{id_post}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_post(
+    id_post: int,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar post"""
-    success = ForumService.delete_post(
-        db=db,
-        post_id=post_id,
-        user_id=current_user.id
-    )
+    post = ForumPost.obter_por_id(db, id_post)
     
-    if not success:
+    if not post or post.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=404,
             detail="Post not found"
         )
     
+    post.deletar(db)
     return None
 
-@router.post("/posts/{post_id}/comments", response_model=ForumCommentResponse, status_code=status.HTTP_201_CREATED)
-def create_comment(
-    post_id: int,
-    comment: ForumCommentCreate,
+@router.post("/posts/{id_post}/comments", response_model=ForumCommentResponse, status_code=status.HTTP_201_CREATED)
+def criar_comentario(
+    id_post: int,
+    comentario: ForumCommentCreate,
     db: Session = Depends(get_db),
-    current_user: User = Depends(auth.get_current_active_user)
+    usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar comentário"""
     # Verificar se post existe
-    post = ForumService.get_post_by_id(db=db, post_id=post_id, increment_views=False)
+    post = ForumPost.obter_por_id(db, id_post)
     if not post:
         raise HTTPException(
             status_code=404,
             detail="Post not found"
         )
     
-    comment_data = comment.dict()
-    db_comment = ForumService.create_comment(
-        db=db,
-        post_id=post_id,
-        user_id=current_user.id,
-        comment_data=comment_data
+    db_comment = ForumComment.criar(
+        db,
+        post_id=id_post,
+        user_id=usuario_atual.id,
+        content=comentario.content,
+        is_anonymous=comentario.is_anonymous
     )
     
     # Recarregar com relacionamentos
-    from sqlalchemy.orm import joinedload
-    db_comment = db.query(ForumComment).options(
-        joinedload(ForumComment.user)
-    ).filter(ForumComment.id == db_comment.id).first()
+    db_comment = ForumComment.obter_por_id(db, db_comment.id, carregar_relacionamentos=True)
     
     return db_comment
 
-@router.get("/posts/{post_id}/comments", response_model=List[ForumCommentResponse])
-def get_comments(
-    post_id: int,
+@router.get("/posts/{id_post}/comments", response_model=List[ForumCommentResponse])
+def obter_comentarios(
+    id_post: int,
     db: Session = Depends(get_db)
 ):
     """Obter comentários de um post"""
-    comments = ForumService.get_comments_by_post(
-        db=db,
-        post_id=post_id
-    )
+    comments = ForumComment.listar_por_post(db, id_post)
     return comments
 
 @router.get("/categories")
-def get_categories():
+def obter_categorias():
     """Obter categorias do fórum"""
     return {
         "categories": [
