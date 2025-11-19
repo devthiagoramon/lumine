@@ -1,14 +1,15 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../contexts/AuthContext'
 import axios from 'axios'
-import { MapPin, Star, Monitor, Building2, Calendar, CheckCircle, Heart, MessageSquare, Plus } from 'lucide-react'
+import { MapPin, Star, Monitor, Building2, Calendar, CheckCircle, Heart, MessageSquare, Plus, Clock } from 'lucide-react'
 import AppointmentForm from '../components/AppointmentForm'
 import ReviewForm from '../components/ReviewForm'
 
 const PsychologistProfile = () => {
   const { id } = useParams()
   const { user: currentUser } = useAuth()
+  const navigate = useNavigate()
   const [psychologist, setPsychologist] = useState(null)
   const [reviews, setReviews] = useState([])
   const [isFavorite, setIsFavorite] = useState(false)
@@ -16,6 +17,23 @@ const PsychologistProfile = () => {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reviewsLoading, setReviewsLoading] = useState(false)
+
+  const handleAgendarConsulta = () => {
+    if (!currentUser) {
+      // Redirecionar para login se não estiver logado
+      if (window.confirm('Você precisa estar logado para agendar uma consulta. Deseja fazer login?')) {
+        navigate('/login')
+      }
+      return
+    }
+    
+    if (currentUser.is_psychologist) {
+      alert('Psicólogos não podem agendar consultas com outros psicólogos.')
+      return
+    }
+    
+    setShowAppointmentForm(!showAppointmentForm)
+  }
 
   useEffect(() => {
     fetchPsychologist()
@@ -79,7 +97,12 @@ const PsychologistProfile = () => {
 
   const handleAppointmentSuccess = () => {
     setShowAppointmentForm(false)
-    alert('Agendamento criado com sucesso!')
+    // Mostrar mensagem de sucesso e redirecionar para o dashboard
+    alert('Agendamento criado com sucesso! Redirecionando para seu dashboard...')
+    // Redirecionar para o dashboard do cliente onde pode ver seus agendamentos
+    setTimeout(() => {
+      navigate('/dashboard/cliente', { state: { message: 'Agendamento criado com sucesso!' } })
+    }, 800)
   }
 
   const handleReviewSuccess = () => {
@@ -145,30 +168,39 @@ const PsychologistProfile = () => {
                   </span>
                 </div>
               )}
+              {psychologist.consultation_price && (
+                <div className="mt-3 flex items-center gap-2">
+                  <span className="text-2xl font-bold text-primary-600">
+                    R$ {psychologist.consultation_price.toFixed(2)}
+                  </span>
+                  <span className="text-gray-600">por consulta</span>
+                </div>
+              )}
             </div>
-            <div className="flex gap-3">
+            <div className="flex flex-col gap-3 w-full md:w-auto">
+              {/* Botão de Agendar Consulta - Sempre visível */}
+              <button
+                onClick={handleAgendarConsulta}
+                className="btn-primary flex items-center justify-center w-full md:w-auto px-6 py-3 text-lg font-semibold shadow-lg hover:shadow-xl transition-all"
+              >
+                <Calendar className="mr-2" size={20} />
+                {showAppointmentForm ? 'Cancelar Agendamento' : 'Agendar Consulta'}
+              </button>
+              
+              {/* Botão de Favoritos - Apenas para usuários logados que não são psicólogos */}
               {currentUser && !currentUser.is_psychologist && (
-                <>
-                  <button
-                    onClick={() => setShowAppointmentForm(!showAppointmentForm)}
-                    className="btn-primary flex items-center"
-                  >
-                    <Calendar className="mr-2" size={18} />
-                    {showAppointmentForm ? 'Cancelar' : 'Agendar Consulta'}
-                  </button>
-                  <button
-                    onClick={handleToggleFavorite}
-                    className={`btn-secondary flex items-center ${
-                      isFavorite ? 'bg-red-50 border-red-600 text-red-600' : ''
-                    }`}
-                  >
-                    <Heart
-                      className={`mr-2 ${isFavorite ? 'fill-red-500' : ''}`}
-                      size={18}
-                    />
-                    {isFavorite ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}
-                  </button>
-                </>
+                <button
+                  onClick={handleToggleFavorite}
+                  className={`btn-secondary flex items-center justify-center w-full md:w-auto ${
+                    isFavorite ? 'bg-red-50 border-red-600 text-red-600' : ''
+                  }`}
+                >
+                  <Heart
+                    className={`mr-2 ${isFavorite ? 'fill-red-500' : ''}`}
+                    size={18}
+                  />
+                  {isFavorite ? 'Remover dos Favoritos' : 'Adicionar aos Favoritos'}
+                </button>
               )}
             </div>
           </div>
@@ -176,13 +208,34 @@ const PsychologistProfile = () => {
 
         {/* Appointment Form */}
         {showAppointmentForm && currentUser && !currentUser.is_psychologist && (
-          <div className="card p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Agendar Consulta</h2>
+          <div className="card p-6 mb-6 border-2 border-primary-200">
+            <div className="flex items-center gap-3 mb-4">
+              <Clock className="text-primary-600" size={24} />
+              <h2 className="text-2xl font-bold text-gray-900">Agendar Consulta</h2>
+            </div>
             <AppointmentForm
               psychologist={psychologist}
               onSuccess={handleAppointmentSuccess}
               onCancel={() => setShowAppointmentForm(false)}
             />
+          </div>
+        )}
+
+        {/* Mensagem se não estiver logado */}
+        {showAppointmentForm && !currentUser && (
+          <div className="card p-6 mb-6 bg-yellow-50 border-2 border-yellow-200">
+            <p className="text-gray-700 mb-4">
+              Você precisa estar logado para agendar uma consulta. 
+              <Link to="/login" className="text-primary-600 font-semibold ml-1 hover:underline">
+                Clique aqui para fazer login
+              </Link>
+            </p>
+            <button
+              onClick={() => setShowAppointmentForm(false)}
+              className="btn-secondary"
+            >
+              Cancelar
+            </button>
           </div>
         )}
 

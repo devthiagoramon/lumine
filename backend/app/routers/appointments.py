@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session, joinedload
 from typing import List
-from datetime import datetime
+from datetime import datetime, timezone
 from app.database import get_db
 from app import auth, schemas, models
 
@@ -24,10 +24,24 @@ def create_appointment(
         )
     
     # Verificar se data é futura
-    if appointment.appointment_date <= datetime.now():
+    # Pydantic já converte a string ISO para datetime
+    # Garantir que ambos tenham timezone para comparação
+    now_utc = datetime.now(timezone.utc)
+    
+    # Processar a data do agendamento
+    appointment_date = appointment.appointment_date
+    
+    # Se a data não tem timezone, assumir que é UTC
+    if appointment_date.tzinfo is None:
+        appointment_date_utc = appointment_date.replace(tzinfo=timezone.utc)
+    else:
+        appointment_date_utc = appointment_date.astimezone(timezone.utc)
+    
+    # Verificar se a data é no futuro
+    if appointment_date_utc <= now_utc:
         raise HTTPException(
             status_code=400,
-            detail="Appointment date must be in the future"
+            detail="A data do agendamento deve ser no futuro"
         )
     
     # Verificar tipo de consulta
@@ -44,10 +58,11 @@ def create_appointment(
         )
     
     # Criar agendamento
+    # Usar a data com timezone que foi validada
     db_appointment = models.Appointment(
         psychologist_id=appointment.psychologist_id,
         user_id=current_user.id,
-        appointment_date=appointment.appointment_date,
+        appointment_date=appointment_date_utc,
         appointment_type=appointment.appointment_type,
         notes=appointment.notes,
         status='pending'

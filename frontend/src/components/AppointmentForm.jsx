@@ -21,18 +21,46 @@ const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
     setError('')
     setLoading(true)
 
+    // Validar se a data foi preenchida
+    if (!formData.appointment_date) {
+      setError('Por favor, selecione uma data e hora para o agendamento')
+      setLoading(false)
+      return
+    }
+
     try {
+      // Converter data local para ISO string (UTC)
+      const appointmentDate = new Date(formData.appointment_date)
+      
+      // Verificar se a data é válida e no futuro
+      if (isNaN(appointmentDate.getTime())) {
+        setError('Data inválida. Por favor, selecione uma data válida.')
+        setLoading(false)
+        return
+      }
+
+      if (appointmentDate <= new Date()) {
+        setError('A data do agendamento deve ser no futuro')
+        setLoading(false)
+        return
+      }
+
       const appointmentData = {
         psychologist_id: psychologist.id,
-        appointment_date: new Date(formData.appointment_date).toISOString(),
+        appointment_date: appointmentDate.toISOString(),
         appointment_type: formData.appointment_type,
         notes: formData.notes || null
       }
 
-      await axios.post('/api/appointments/', appointmentData)
+      console.log('Enviando agendamento:', appointmentData)
+      const response = await axios.post('/api/appointments/', appointmentData)
+      console.log('Agendamento criado com sucesso:', response.data)
       onSuccess()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar agendamento')
+      console.error('Erro ao criar agendamento:', err)
+      const errorMessage = err.response?.data?.detail || err.message || 'Erro ao criar agendamento'
+      setError(errorMessage)
+      console.error('Detalhes do erro:', err.response?.data)
     } finally {
       setLoading(false)
     }
