@@ -3,8 +3,9 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useNavigate } from 'react-router-dom'
 import axios from 'axios'
-import { Calendar, Heart, Plus, Edit, Trash2, TrendingUp, BarChart3 } from 'lucide-react'
+import { Calendar, Heart, Plus, Edit, Trash2, TrendingUp, BarChart3, Filter, X } from 'lucide-react'
 import EmotionEntryForm from '../components/EmotionEntryForm'
+import EmotionChart from '../components/EmotionChart'
 
 const EmotionDiary = () => {
   const { user, loading: authLoading } = useAuth()
@@ -19,6 +20,9 @@ const EmotionDiary = () => {
   const [selectedEmotion, setSelectedEmotion] = useState('')
   const [startDate, setStartDate] = useState('')
   const [endDate, setEndDate] = useState('')
+  const [filteredEntries, setFilteredEntries] = useState([])
+  const [filteredStats, setFilteredStats] = useState(null)
+  const [filtersApplied, setFiltersApplied] = useState(false)
 
   useEffect(() => {
     if (!authLoading && !user) {
@@ -28,7 +32,7 @@ const EmotionDiary = () => {
       fetchEntries()
       fetchStats()
     }
-  }, [user, authLoading, navigate, selectedEmotion, startDate, endDate])
+  }, [user, authLoading, navigate])
 
   const fetchEmotions = async () => {
     try {
@@ -39,16 +43,22 @@ const EmotionDiary = () => {
     }
   }
 
-  const fetchEntries = async () => {
+  const fetchEntries = async (applyFilters = false) => {
     setLoading(true)
     try {
       const params = {}
-      if (selectedEmotion) params.emotion = selectedEmotion
-      if (startDate) params.start_date = new Date(startDate).toISOString()
-      if (endDate) params.end_date = new Date(endDate).toISOString()
+      if (applyFilters) {
+        if (selectedEmotion) params.emocao = selectedEmotion
+        if (startDate) params.data_inicio = new Date(startDate).toISOString()
+        if (endDate) params.data_fim = new Date(endDate).toISOString()
+      }
 
       const response = await axios.get('/api/emotion-diary/', { params })
-      setEntries(response.data)
+      if (applyFilters) {
+        setFilteredEntries(response.data)
+      } else {
+        setEntries(response.data)
+      }
     } catch (error) {
       console.error('Erro ao carregar entradas:', error)
     } finally {
@@ -56,17 +66,40 @@ const EmotionDiary = () => {
     }
   }
 
-  const fetchStats = async () => {
+  const fetchStats = async (applyFilters = false) => {
     try {
       const params = {}
-      if (startDate) params.start_date = new Date(startDate).toISOString()
-      if (endDate) params.end_date = new Date(endDate).toISOString()
+      if (applyFilters) {
+        if (startDate) params.data_inicio = new Date(startDate).toISOString()
+        if (endDate) params.data_fim = new Date(endDate).toISOString()
+      }
 
       const response = await axios.get('/api/emotion-diary/stats', { params })
-      setStats(response.data)
+      if (applyFilters) {
+        setFilteredStats(response.data)
+      } else {
+        setStats(response.data)
+      }
     } catch (error) {
       console.error('Erro ao carregar estatísticas:', error)
     }
+  }
+
+  const handleApplyFilters = () => {
+    setFiltersApplied(true)
+    fetchEntries(true)
+    fetchStats(true)
+  }
+
+  const handleClearFilters = () => {
+    setSelectedEmotion('')
+    setStartDate('')
+    setEndDate('')
+    setFiltersApplied(false)
+    setFilteredEntries([])
+    setFilteredStats(null)
+    fetchEntries()
+    fetchStats()
   }
 
   const handleEntryCreated = () => {
@@ -249,8 +282,23 @@ const EmotionDiary = () => {
 
         {/* Filters */}
         <div className="card p-6 mb-6">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Filtros</h2>
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+              <Filter className="text-blue-600" size={20} />
+              Filtros
+            </h2>
+            {filtersApplied && (
+              <button
+                onClick={handleClearFilters}
+                className="text-sm text-gray-600 hover:text-gray-800 flex items-center gap-1"
+              >
+                <X size={16} />
+                Limpar Filtros
+              </button>
+            )}
+          </div>
+          
+          <div className="grid md:grid-cols-3 gap-4 mb-4">
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
                 Emoção
@@ -293,7 +341,141 @@ const EmotionDiary = () => {
               />
             </div>
           </div>
+
+          <div className="flex gap-4">
+            <button
+              onClick={handleApplyFilters}
+              className="btn-primary flex items-center"
+            >
+              <Filter className="mr-2" size={18} />
+              Aplicar Filtros
+            </button>
+            <button
+              onClick={handleClearFilters}
+              className="btn-secondary flex items-center"
+            >
+              <X className="mr-2" size={18} />
+              Limpar Filtros
+            </button>
+          </div>
         </div>
+
+        {/* Filtered Results */}
+        {filtersApplied && (
+          <>
+            {/* Filtered Stats */}
+            {filteredStats && (
+              <div className="grid md:grid-cols-3 gap-6 mb-6">
+                <div className="card p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Entradas Filtradas</p>
+                      <p className="text-3xl font-bold text-gray-900">{filteredStats.total_entries}</p>
+                    </div>
+                    <Calendar className="text-blue-600" size={32} />
+                  </div>
+                </div>
+
+                <div className="card p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Intensidade Média</p>
+                      <p className="text-3xl font-bold text-blue-600">
+                        {filteredStats.average_intensity.toFixed(1)}
+                      </p>
+                    </div>
+                    <TrendingUp className="text-blue-600" size={32} />
+                  </div>
+                </div>
+
+                <div className="card p-6">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-sm text-gray-600 mb-1">Emoções Encontradas</p>
+                      <p className="text-3xl font-bold text-gray-900">{filteredStats.emotion_stats.length}</p>
+                    </div>
+                    <BarChart3 className="text-blue-600" size={32} />
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Filtered Chart */}
+            {filteredStats && filteredStats.emotion_stats.length > 0 && (
+              <div className="card p-6 mb-6">
+                <EmotionChart 
+                  data={filteredStats.emotion_stats} 
+                  title="Frequência de Emoções (Filtradas)"
+                />
+              </div>
+            )}
+
+            {/* Filtered Entries List */}
+            <div className="card p-6 mb-6">
+              <h2 className="text-xl font-bold text-gray-900 mb-4">
+                Resultados Filtrados ({filteredEntries.length} {filteredEntries.length === 1 ? 'entrada' : 'entradas'})
+              </h2>
+              {filteredEntries.length === 0 ? (
+                <div className="text-center py-8">
+                  <Heart className="mx-auto text-gray-400 mb-4" size={48} />
+                  <p className="text-gray-600">Nenhuma entrada encontrada com os filtros aplicados</p>
+                </div>
+              ) : (
+                <div className="space-y-4">
+                  {filteredEntries.map(entry => (
+                    <div key={entry.id} className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition-shadow">
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3 mb-3">
+                            <span className={`px-3 py-1 rounded-full text-sm font-medium ${getEmotionColor(entry.emotion)}`}>
+                              {emotions.find(e => e.value === entry.emotion)?.label || entry.emotion}
+                            </span>
+                            <div className="flex items-center gap-1">
+                              {[...Array(10)].map((_, i) => (
+                                <div
+                                  key={i}
+                                  className={`w-3 h-3 rounded-full ${
+                                    i < entry.intensity
+                                      ? 'bg-blue-600'
+                                      : 'bg-gray-200'
+                                  }`}
+                                ></div>
+                              ))}
+                              <span className="ml-2 text-sm text-gray-600">
+                                {entry.intensity}/10
+                              </span>
+                            </div>
+                          </div>
+                          <p className="text-gray-600 mb-2">
+                            <Calendar className="inline mr-1" size={16} />
+                            {formatDate(entry.date)}
+                          </p>
+                          {entry.notes && (
+                            <p className="text-gray-700 whitespace-pre-line mb-2">
+                              {entry.notes}
+                            </p>
+                          )}
+                          {entry.tags && (
+                            <div className="flex flex-wrap gap-2 mt-2">
+                              {entry.tags.split(',').map((tag, i) => (
+                                <span
+                                  key={i}
+                                  className="px-2 py-1 bg-gray-100 text-gray-700 rounded text-xs"
+                                >
+                                  {tag.trim()}
+                                </span>
+                              ))}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </>
+        )}
 
         {/* Entries List */}
         {entries.length === 0 ? (

@@ -12,6 +12,7 @@ from app.models.forum_post import ForumPost
 from app.models.forum_comment import ForumComment
 from app.models.emotion_diary import EmotionDiary
 from app.models.payment import Payment
+from app.models.payment_method import PaymentMethod
 from app.models.psychologist_availability import PsychologistAvailability
 from app.models.notification import Notification
 from app.models.questionnaire import Questionnaire
@@ -32,6 +33,7 @@ __all__ = [
     "ForumComment",
     "EmotionDiary",
     "Payment",
+    "PaymentMethod",
     "PsychologistAvailability",
     "Notification",
     "Questionnaire",

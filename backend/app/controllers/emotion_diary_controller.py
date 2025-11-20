@@ -30,7 +30,6 @@ def criar_entrada(
         )
     
     db_entry = EmotionDiary.criar(
-        db,
         user_id=usuario_atual.id,
         date=entrada.date,
         emotion=entrada.emotion,
@@ -42,15 +41,15 @@ def criar_entrada(
 
 @router.get("/", response_model=List[EmotionDiaryResponse])
 def obter_entradas(
-    data_inicio: Optional[datetime] = Query(None),
-    data_fim: Optional[datetime] = Query(None),
+    data_inicio: Optional[datetime] = Query(None, alias="data_inicio"),
+    data_fim: Optional[datetime] = Query(None, alias="data_fim"),
     emocao: Optional[str] = Query(None),
     db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entradas do diário"""
     entries = EmotionDiary.listar_por_usuario(
-        db, usuario_atual.id, 
+        usuario_atual.id, 
         data_inicio=data_inicio, 
         data_fim=data_fim, 
         emocao=emocao
@@ -59,13 +58,17 @@ def obter_entradas(
 
 @router.get("/stats")
 def obter_estatisticas(
-    data_inicio: Optional[datetime] = Query(None),
-    data_fim: Optional[datetime] = Query(None),
+    data_inicio: Optional[datetime] = Query(None, alias="data_inicio"),
+    data_fim: Optional[datetime] = Query(None, alias="data_fim"),
     db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter estatísticas do diário"""
-    stats = EmotionDiary.obter_estatisticas(db, usuario_atual.id, data_inicio=data_inicio, data_fim=data_fim)
+    stats = EmotionDiary.obter_estatisticas(
+        usuario_atual.id, 
+        data_inicio=data_inicio, 
+        data_fim=data_fim
+    )
     return stats
 
 @router.get("/{id_entrada}", response_model=EmotionDiaryResponse)
@@ -75,7 +78,7 @@ def obter_entrada(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entrada por ID"""
-    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
+    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
     if not entry:
         raise HTTPException(
@@ -93,7 +96,7 @@ def atualizar_entrada(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar entrada"""
-    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
+    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
     if not entry:
         raise HTTPException(
@@ -110,7 +113,7 @@ def atualizar_entrada(
             )
     
     update_data = atualizacao_entrada.dict(exclude_unset=True)
-    entry.atualizar(db, **update_data)
+    entry.atualizar(**update_data)
     
     return entry
 
@@ -121,7 +124,7 @@ def deletar_entrada(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar entrada"""
-    entry = EmotionDiary.obter_por_id(db, id_entrada, usuario_atual.id)
+    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
     if not entry:
         raise HTTPException(
@@ -129,7 +132,7 @@ def deletar_entrada(
             detail="Entry not found"
         )
     
-    entry.deletar(db)
+    entry.deletar()
     return None
 
 @router.get("/emotions/list")

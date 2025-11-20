@@ -20,6 +20,9 @@ from app.schemas.emotion_diary import (
     EmotionDiaryCreate, EmotionDiaryUpdate, EmotionDiaryResponse
 )
 from app.schemas.payment import PaymentCreate, PaymentResponse
+from app.schemas.payment_method import (
+    PaymentMethodCreate, PaymentMethodUpdate, PaymentMethodResponse
+)
 from app.schemas.availability import (
     PsychologistAvailabilityCreate, PsychologistAvailabilityUpdate,
     PsychologistAvailabilityResponse
@@ -45,6 +48,7 @@ __all__ = [
     "ForumCommentCreate", "ForumCommentResponse",
     "EmotionDiaryCreate", "EmotionDiaryUpdate", "EmotionDiaryResponse",
     "PaymentCreate", "PaymentResponse",
+    "PaymentMethodCreate", "PaymentMethodUpdate", "PaymentMethodResponse",
     "PsychologistAvailabilityCreate", "PsychologistAvailabilityUpdate",
     "PsychologistAvailabilityResponse",
     "NotificationResponse", "NotificationUpdate",

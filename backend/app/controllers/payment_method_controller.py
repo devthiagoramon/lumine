@@ -1,0 +1,196 @@
+"""
+Payment Method Controller - Endpoints para gerenciar métodos de pagamento salvos
+"""
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy.orm import Session
+from typing import List
+from app.database import get_db
+from app import auth
+from app.schemas.payment_method import (
+    PaymentMethodCreate, PaymentMethodUpdate, PaymentMethodResponse
+)
+from app.models.user import User
+from app.models.payment_method import PaymentMethod
+import re
+
+router = APIRouter()
+
+def detect_card_brand(card_number: str) -> str:
+    """Detectar a bandeira do cartão baseado no número"""
+    # Remover espaços
+    card_number = re.sub(r'\s+', '', card_number)
+    
+    # Visa: começa com 4
+    if card_number.startswith('4'):
+        return 'visa'
+    # Mastercard: começa com 5 ou 2
+    elif card_number.startswith('5') or card_number.startswith('2'):
+        return 'mastercard'
+    # Amex: começa com 34 ou 37
+    elif card_number.startswith('34') or card_number.startswith('37'):
+        return 'amex'
+    # Elo: começa com vários prefixos
+    elif any(card_number.startswith(prefix) for prefix in ['401178', '401179', '431274', '438935', '451416', '457393', '457631', '457632', '504175', '627780', '636297', '636368', '636369']):
+        return 'elo'
+    else:
+        return 'unknown'
+
+def parse_expiry(expiry: str) -> tuple:
+    """Converter MM/YY em (month, year)"""
+    month, year = expiry.split('/')
+    # Converter YY para YYYY
+    full_year = f"20{year}" if len(year) == 2 else year
+    return month, full_year
+
+@router.post("/", response_model=PaymentMethodResponse, status_code=status.HTTP_201_CREATED)
+def criar_metodo_pagamento(
+    metodo: PaymentMethodCreate,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Criar novo método de pagamento"""
+    # Detectar bandeira do cartão
+    card_brand = detect_card_brand(metodo.card_number)
+    
+    # Extrair últimos 4 dígitos
+    last_four = metodo.card_number[-4:]
+    
+    # Parse da data de validade
+    expiry_month, expiry_year = parse_expiry(metodo.card_expiry)
+    
+    # Criar método de pagamento
+    metodo_db = PaymentMethod.criar(
+        user_id=usuario_atual.id,
+        card_type=metodo.card_type,
+        card_brand=card_brand,
+        last_four_digits=last_four,
+        card_holder=metodo.card_holder.upper(),
+        expiry_month=expiry_month,
+        expiry_year=expiry_year,
+        is_default=metodo.is_default
+    )
+    
+    return metodo_db
+
+@router.get("/", response_model=List[PaymentMethodResponse])
+def listar_metodos_pagamento(
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Listar métodos de pagamento do usuário"""
+    metodos = PaymentMethod.listar_por_usuario(usuario_atual.id)
+    return metodos
+
+@router.get("/{id_metodo}", response_model=PaymentMethodResponse)
+def obter_metodo_pagamento(
+    id_metodo: int,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Obter método de pagamento por ID"""
+    metodo = PaymentMethod.obter_por_id(id_metodo)
+    
+    if not metodo:
+        raise HTTPException(
+            status_code=404,
+            detail="Método de pagamento não encontrado"
+        )
+    
+    if metodo.user_id != usuario_atual.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para acessar este método de pagamento"
+        )
+    
+    return metodo
+
+@router.put("/{id_metodo}", response_model=PaymentMethodResponse)
+def atualizar_metodo_pagamento(
+    id_metodo: int,
+    metodo_update: PaymentMethodUpdate,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Atualizar método de pagamento"""
+    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    
+    if not metodo:
+        raise HTTPException(
+            status_code=404,
+            detail="Método de pagamento não encontrado"
+        )
+    
+    if metodo.user_id != usuario_atual.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para atualizar este método de pagamento"
+        )
+    
+    # Preparar dados para atualização
+    update_data = {}
+    
+    if metodo_update.card_holder is not None:
+        update_data['card_holder'] = metodo_update.card_holder.upper()
+    
+    if metodo_update.card_expiry is not None:
+        expiry_month, expiry_year = parse_expiry(metodo_update.card_expiry)
+        update_data['expiry_month'] = expiry_month
+        update_data['expiry_year'] = expiry_year
+    
+    if metodo_update.is_default is not None:
+        update_data['is_default'] = metodo_update.is_default
+    
+    metodo_atualizado = metodo.atualizar(**update_data)
+    
+    return metodo_atualizado
+
+@router.post("/{id_metodo}/definir-padrao", response_model=PaymentMethodResponse)
+def definir_metodo_padrao(
+    id_metodo: int,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Definir método de pagamento como padrão"""
+    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    
+    if not metodo:
+        raise HTTPException(
+            status_code=404,
+            detail="Método de pagamento não encontrado"
+        )
+    
+    if metodo.user_id != usuario_atual.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para definir este método como padrão"
+        )
+    
+    metodo_atualizado = metodo.atualizar(is_default=True)
+    
+    return metodo_atualizado
+
+@router.delete("/{id_metodo}", status_code=status.HTTP_204_NO_CONTENT)
+def deletar_metodo_pagamento(
+    id_metodo: int,
+    db: Session = Depends(get_db),
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Deletar método de pagamento"""
+    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    
+    if not metodo:
+        raise HTTPException(
+            status_code=404,
+            detail="Método de pagamento não encontrado"
+        )
+    
+    if metodo.user_id != usuario_atual.id:
+        raise HTTPException(
+            status_code=403,
+            detail="Você não tem permissão para deletar este método de pagamento"
+        )
+    
+    metodo.deletar()
+    
+    return None
+

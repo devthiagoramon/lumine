@@ -11,6 +11,7 @@ from app.controllers.favorite_controller import router as favorite_router
 from app.controllers.forum_controller import router as forum_router
 from app.controllers.emotion_diary_controller import router as emotion_diary_router
 from app.controllers.payment_controller import router as payment_router
+from app.controllers.payment_method_controller import router as payment_method_router
 from app.controllers.admin_controller import router as admin_router
 from app.controllers.availability_controller import router as availability_router
 from app.controllers.notification_controller import router as notification_router
@@ -30,6 +31,7 @@ __all__ = [
     "forum_router",
     "emotion_diary_router",
     "payment_router",
+    "payment_method_router",
     "admin_router",
     "availability_router",
     "notification_router",

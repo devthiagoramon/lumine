@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Save, X, Calendar, Heart } from 'lucide-react'
+import { useToast } from '../contexts/ToastContext'
 
 const EmotionEntryForm = ({ entry, onSuccess, onCancel }) => {
+  const { success } = useToast()
   const [formData, setFormData] = useState({
     date: new Date().toISOString().slice(0, 16),
     emotion: 'feliz',
@@ -66,8 +68,10 @@ const EmotionEntryForm = ({ entry, onSuccess, onCancel }) => {
 
       if (entry) {
         await axios.put(`/api/emotion-diary/${entry.id}`, entryData)
+        success('Entrada atualizada com sucesso!')
       } else {
         await axios.post('/api/emotion-diary/', entryData)
+        success('Entrada salva com sucesso!')
       }
       onSuccess()
     } catch (err) {

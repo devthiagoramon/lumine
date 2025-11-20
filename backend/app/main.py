@@ -3,7 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.controllers import (
     auth_router, user_router, psychologist_router, search_router,
     review_router, appointment_router, favorite_router, forum_router,
-    emotion_diary_router, payment_router, admin_router, availability_router,
+    emotion_diary_router, payment_router, payment_method_router, admin_router, availability_router,
     notification_router, questionnaire_router, pre_registration_router,
     withdrawal_router, treatment_map_router
 )
@@ -39,6 +39,7 @@ app.include_router(favorite_router, prefix="/api/favorites", tags=["favorites"])
 app.include_router(forum_router, prefix="/api/forum", tags=["forum"])
 app.include_router(emotion_diary_router, prefix="/api/emotion-diary", tags=["emotion-diary"])
 app.include_router(payment_router, prefix="/api/payments", tags=["payments"])
+app.include_router(payment_method_router, prefix="/api/payment-methods", tags=["payment-methods"])
 app.include_router(admin_router, prefix="/api/admin", tags=["admin"])
 app.include_router(availability_router, prefix="/api/availability", tags=["availability"])
 app.include_router(notification_router, prefix="/api/notifications", tags=["notifications"])
