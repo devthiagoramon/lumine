@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import axios from 'axios'
 import { Search as SearchIcon, MapPin, Star, Filter, X } from 'lucide-react'
@@ -7,6 +7,7 @@ import PsychologistCard from '../components/PsychologistCard'
 const Search = () => {
   const [psychologists, setPsychologists] = useState([])
   const [loading, setLoading] = useState(true)
+  const [hasSearched, setHasSearched] = useState(false)
   const [filtersOpen, setFiltersOpen] = useState(false)
   const [filters, setFilters] = useState({
     query: '',
@@ -23,10 +24,20 @@ const Search = () => {
   const [approaches, setApproaches] = useState([])
   const [total, setTotal] = useState(0)
   const [page, setPage] = useState(1)
-
+  
+  // Ref para rastrear se é a primeira montagem
+  const isInitialMount = useRef(true)
+  // Refs para manter os valores atuais sem causar re-renderizações
+  const filtersRef = useRef(filters)
+  const pageRef = useRef(page)
+  
+  // Atualizar refs quando os valores mudarem
   useEffect(() => {
-    fetchSpecialtiesAndApproaches()
-    searchPsychologists()
+    filtersRef.current = filters
+  }, [filters])
+  
+  useEffect(() => {
+    pageRef.current = page
   }, [page])
 
   const fetchSpecialtiesAndApproaches = async () => {
@@ -42,49 +53,85 @@ const Search = () => {
     }
   }
 
-  const searchPsychologists = async () => {
+  // Memoizar a função de busca para evitar recriações desnecessárias
+  // A função recebe os valores como parâmetros, então não precisa de dependências
+  const searchPsychologists = useCallback(async (currentPage, currentFilters) => {
     setLoading(true)
     try {
       // Mapear parâmetros do inglês para português (como o backend espera)
       const params = {
-        pagina: page,
+        pagina: currentPage,
         tamanho_pagina: 12
       }
 
       // Mapear filtros
-      if (filters.query) params.consulta = filters.query
-      if (filters.city) params.cidade = filters.city
-      if (filters.state) params.estado = filters.state
-      if (filters.specialty_ids && filters.specialty_ids.length > 0) {
-        params.ids_especialidades = filters.specialty_ids
+      if (currentFilters.query) params.consulta = currentFilters.query
+      if (currentFilters.city) params.cidade = currentFilters.city
+      if (currentFilters.state) params.estado = currentFilters.state
+      if (currentFilters.specialty_ids && currentFilters.specialty_ids.length > 0) {
+        params.ids_especialidades = currentFilters.specialty_ids
       }
-      if (filters.approach_ids && filters.approach_ids.length > 0) {
-        params.ids_abordagens = filters.approach_ids
+      if (currentFilters.approach_ids && currentFilters.approach_ids.length > 0) {
+        params.ids_abordagens = currentFilters.approach_ids
       }
-      if (filters.online_consultation !== null) {
-        params.consulta_online = filters.online_consultation
+      if (currentFilters.online_consultation !== null) {
+        params.consulta_online = currentFilters.online_consultation
       }
-      if (filters.in_person_consultation !== null) {
-        params.consulta_presencial = filters.in_person_consultation
+      if (currentFilters.in_person_consultation !== null) {
+        params.consulta_presencial = currentFilters.in_person_consultation
       }
-      if (filters.min_rating !== null) {
-        params.avaliacao_minima = filters.min_rating
+      if (currentFilters.min_rating !== null) {
+        params.avaliacao_minima = currentFilters.min_rating
       }
-      if (filters.max_price !== null) {
-        params.preco_maximo = filters.max_price
+      if (currentFilters.max_price !== null) {
+        params.preco_maximo = currentFilters.max_price
       }
 
+      console.log('🔍 Buscando psicólogos com parâmetros:', params)
       const response = await axios.get('/api/search/psychologists', { params })
-      setPsychologists(response.data.psychologists || [])
-      setTotal(response.data.total || 0)
+      console.log('✅ Resposta da API:', response.data)
+      console.log('📊 Psicólogos recebidos:', response.data?.psychologists)
+      console.log('📈 Total:', response.data?.total)
+      
+      // Só atualizar o estado se a resposta for válida
+      if (response.data) {
+        const psychologistsList = response.data.psychologists || []
+        const totalCount = response.data.total || 0
+        
+        console.log('💾 Atualizando estado com:', {
+          psychologists: psychologistsList.length,
+          total: totalCount
+        })
+        
+        setPsychologists(psychologistsList)
+        setTotal(totalCount)
+        setHasSearched(true)
+        
+        console.log('✅ Estado atualizado com sucesso')
+      } else {
+        console.warn('⚠️ Resposta da API não contém dados válidos')
+        setPsychologists([])
+        setTotal(0)
+        setHasSearched(true)
+      }
     } catch (error) {
-      console.error('Erro ao buscar psicólogos:', error)
-      setPsychologists([])
-      setTotal(0)
+      console.error('❌ Erro ao buscar psicólogos:', error)
+      console.error('📋 Detalhes do erro:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
+      // Só limpar o estado se já tiver feito uma busca anterior
+      if (hasSearched) {
+        setPsychologists([])
+        setTotal(0)
+      }
+      // Marcar que a busca foi tentada, mesmo em caso de erro
+      setHasSearched(true)
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
   const handleFilterChange = (key, value) => {
     setFilters(prev => ({ ...prev, [key]: value }))
@@ -108,11 +155,11 @@ const Search = () => {
   const handleSearch = (e) => {
     e.preventDefault()
     setPage(1)
-    searchPsychologists()
+    searchPsychologists(1, filters)
   }
 
   const clearFilters = () => {
-    setFilters({
+    const emptyFilters = {
       query: '',
       city: '',
       state: '',
@@ -122,18 +169,63 @@ const Search = () => {
       in_person_consultation: null,
       min_rating: null,
       max_price: null,
-    })
+    }
+    setFilters(emptyFilters)
     setPage(1)
+    // Buscar imediatamente após limpar filtros
+    searchPsychologists(1, emptyFilters)
   }
 
+  // Carregar especialidades e abordagens na inicialização
   useEffect(() => {
+    fetchSpecialtiesAndApproaches()
+  }, [])
+
+  // Buscar psicólogos na inicialização (apenas uma vez)
+  useEffect(() => {
+    if (isInitialMount.current) {
+      isInitialMount.current = false
+      searchPsychologists(1, filtersRef.current)
+    }
+  }, [searchPsychologists])
+
+  // Buscar psicólogos quando a página mudar (mas não na inicialização)
+  useEffect(() => {
+    if (!isInitialMount.current) {
+      searchPsychologists(pageRef.current, filtersRef.current)
+    }
+  }, [page, searchPsychologists])
+
+  // Buscar psicólogos quando os filtros mudarem (com debounce)
+  useEffect(() => {
+    // Ignorar a primeira renderização
+    if (isInitialMount.current) {
+      return
+    }
+
     const timer = setTimeout(() => {
-      if (page === 1) {
-        searchPsychologists()
+      // Resetar para página 1 quando os filtros mudarem
+      // O useEffect de [page] vai buscar automaticamente quando a página mudar
+      if (pageRef.current !== 1) {
+        setPage(1)
+      } else {
+        // Se já estiver na página 1, buscar diretamente
+        searchPsychologists(1, filtersRef.current)
       }
     }, 500)
+    
     return () => clearTimeout(timer)
-  }, [filters])
+  }, [filters, searchPsychologists])
+
+  // Debug: Monitorar mudanças no estado
+  useEffect(() => {
+    console.log('📊 Estado atualizado:', {
+      psychologists: psychologists.length,
+      total,
+      loading,
+      hasSearched
+    })
+  }, [psychologists, total, loading, hasSearched])
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -334,7 +426,7 @@ const Search = () => {
               </div>
             ))}
           </div>
-        ) : psychologists.length === 0 ? (
+        ) : !loading && hasSearched && psychologists.length === 0 ? (
           <div className="text-center py-12">
             <p className="text-gray-600 text-lg mb-4">
               Nenhum psicólogo encontrado com os filtros selecionados.
@@ -343,12 +435,37 @@ const Search = () => {
               Limpar Filtros
             </button>
           </div>
-        ) : (
+        ) : !loading && psychologists.length > 0 ? (
           <>
             <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6 mb-8">
-              {psychologists.map(psychologist => (
-                <PsychologistCard key={psychologist.id} psychologist={psychologist} />
-              ))}
+              {psychologists.map((psychologist, index) => {
+                console.log(`🔄 Renderizando psicólogo ${index + 1}:`, psychologist)
+                // Verificar se os dados necessários estão presentes
+                if (!psychologist || !psychologist.user) {
+                  console.warn(`⚠️ Psicólogo ${index + 1} sem dados completos:`, psychologist)
+                  // Fallback: card simples com dados básicos
+                  return (
+                    <div key={psychologist?.id || index} className="card p-6">
+                      <h3 className="text-xl font-bold text-gray-900 mb-2">
+                        {psychologist?.user?.full_name || psychologist?.user?.name || 'Psicólogo'}
+                      </h3>
+                      <p className="text-sm text-gray-600 mb-2">CRP: {psychologist?.crp || 'N/A'}</p>
+                      {psychologist?.specialties && psychologist.specialties.length > 0 && (
+                        <div className="flex flex-wrap gap-2">
+                          {psychologist.specialties.slice(0, 3).map(spec => (
+                            <span key={spec.id} className="px-2 py-1 bg-primary-100 text-primary-700 text-xs rounded-full">
+                              {spec.name}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )
+                }
+                return (
+                  <PsychologistCard key={psychologist.id || index} psychologist={psychologist} />
+                )
+              })}
             </div>
 
             {/* Pagination */}
@@ -374,7 +491,7 @@ const Search = () => {
               </div>
             )}
           </>
-        )}
+        ) : null}
       </div>
     </div>
   )

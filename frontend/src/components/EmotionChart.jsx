@@ -51,3 +51,4 @@ const EmotionChart = ({ data, title = "Frequência de Emoções" }) => {
 export default EmotionChart
 
 
+

@@ -162,13 +162,23 @@ class Psychologist(Base):
         
         db = get_db_session()
         try:
-            # Filtrar apenas psicólogos verificados
-            q = db.query(cls).filter(cls.is_verified == True)
+            # Debug: Verificar quantos psicólogos existem no total
+            total_all = db.query(cls).count()
+            total_verified = db.query(cls).filter(cls.is_verified == True).count()
+            total_with_user = db.query(cls).join(User).count()
+            total_with_left_join = db.query(cls).outerjoin(User).count()
+            print(f"🔍 DEBUG busca_com_filtros: Total={total_all}, Verificados={total_verified}, Com User={total_with_user}, Com Left Join={total_with_left_join}")
+            
+            # Usar outerjoin (LEFT JOIN) para incluir psicólogos mesmo sem user associado
+            # TEMPORARIAMENTE: Remover filtro is_verified para debug - retornar todos os psicólogos
+            # TODO: Restaurar filtro is_verified após confirmar que os dados estão sendo retornados
+            q = db.query(cls).outerjoin(User)  # Usar outerjoin em vez de join para não excluir psicólogos sem user
+            print(f"🔍 DEBUG: Query inicial criada, filtros aplicados: consulta={consulta}, cidade={cidade}, estado={estado}")
             
             # Filtro por busca textual
             if consulta:
                 search_term = f"%{consulta}%"
-                q = q.join(User).filter(
+                q = q.filter(
                     or_(
                         User.full_name.ilike(search_term),
                         cls.bio.ilike(search_term),
@@ -198,7 +208,7 @@ class Psychologist(Base):
                     Approach.id.in_(ids_abordagens)
                 )
             
-            # Aplicar distinct se houver joins
+            # Aplicar distinct se houver joins com especialidades ou abordagens
             if ids_especialidades or ids_abordagens:
                 q = q.distinct()
             
@@ -226,8 +236,13 @@ class Psychologist(Base):
             if experiencia_minima is not None:
                 q = q.filter(cls.experience_years >= experiencia_minima)
             
-            # Contar total
-            total = q.count()
+            # Contar total (usar distinct se necessário)
+            if ids_especialidades or ids_abordagens:
+                total = q.distinct().count()
+            else:
+                total = q.count()
+            
+            print(f"🔍 DEBUG: Total após filtros={total}, Página={pagina}, Tamanho={tamanho_pagina}")
             
             # Paginação
             skip = (pagina - 1) * tamanho_pagina
@@ -239,6 +254,14 @@ class Psychologist(Base):
                 cls.rating.desc(),
                 cls.total_reviews.desc()
             ).offset(skip).limit(tamanho_pagina).all()
+            
+            print(f"🔍 DEBUG: Psicólogos retornados={len(psychologists)}")
+            if psychologists:
+                print(f"🔍 DEBUG: Primeiro psicólogo: id={psychologists[0].id}, user_id={psychologists[0].user_id}, is_verified={psychologists[0].is_verified}")
+                if psychologists[0].user:
+                    print(f"🔍 DEBUG: User do primeiro: id={psychologists[0].user.id}, name={psychologists[0].user.full_name}")
+                else:
+                    print(f"⚠️ DEBUG: Primeiro psicólogo não tem user associado!")
             
             return {
                 "psychologists": psychologists,

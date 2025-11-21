@@ -2,11 +2,18 @@ import { Link } from 'react-router-dom'
 import { MapPin, Star, Monitor, Building2 } from 'lucide-react'
 
 const PsychologistCard = ({ psychologist }) => {
-  if (!psychologist || !psychologist.user) {
+  console.log('🎴 PsychologistCard recebeu:', psychologist)
+  
+  if (!psychologist) {
+    console.warn('⚠️ PsychologistCard: psychologist é null ou undefined')
     return null
   }
 
-  const userName = psychologist.user?.full_name || 'Nome não disponível'
+  if (!psychologist.user) {
+    console.warn('⚠️ PsychologistCard: psychologist.user é null ou undefined', psychologist)
+  }
+
+  const userName = psychologist.user?.full_name || psychologist.user?.name || 'Nome não disponível'
   const specialties = psychologist.specialties || []
 
   return (
