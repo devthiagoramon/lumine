@@ -24,13 +24,13 @@ class ForumComment(Base):
     
     # Métodos de acesso ao banco
     @classmethod
-    def listar_por_post(cls, post_id: int) -> List["ForumComment"]:
+    def listar_por_post(cls, id_post: int) -> List["ForumComment"]:
         """Listar comentários de um post"""
         db = get_db_session()
         try:
             return db.query(cls).options(
                 joinedload(cls.user)
-            ).filter(cls.post_id == post_id).order_by(cls.created_at.asc()).all()
+            ).filter(cls.post_id == id_post).order_by(cls.created_at.asc()).all()
         finally:
             db.close()
     

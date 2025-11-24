@@ -2,9 +2,7 @@
 Payment Controller - Endpoints de pagamentos
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List, Optional
-from app.database import get_db
 from app import auth
 from app.schemas import PaymentCreate, PaymentResponse
 from app.models.user import User
@@ -21,12 +19,11 @@ router = APIRouter()
 @router.post("/", response_model=PaymentResponse, status_code=status.HTTP_201_CREATED)
 def criar_pagamento(
     pagamento: PaymentCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar pagamento"""
     # Verificar se agendamento existe
-    agendamento = Appointment.obter_por_id(db, pagamento.appointment_id)
+    agendamento = Appointment.obter_por_id(pagamento.appointment_id)
     
     if not agendamento:
         raise HTTPException(
@@ -49,7 +46,7 @@ def criar_pagamento(
         )
     
     # Verificar se já foi pago
-    pagamento_existente = Payment.obter_por_agendamento(db, pagamento.appointment_id)
+    pagamento_existente = Payment.obter_por_agendamento(pagamento.appointment_id)
     
     if pagamento_existente and pagamento_existente.status == 'paid':
         raise HTTPException(
@@ -58,7 +55,7 @@ def criar_pagamento(
         )
     
     # Obter valor do psicólogo
-    psicologo = Psychologist.obter_por_id(db, agendamento.psychologist_id)
+    psicologo = Psychologist.obter_por_id(agendamento.psychologist_id)
     
     if not psicologo or not psicologo.consultation_price:
         raise HTTPException(
@@ -66,7 +63,20 @@ def criar_pagamento(
             detail="Preço da consulta do psicólogo não definido"
         )
     
-    valor = psicologo.consultation_price
+    # Verificar se é primeira consulta para aplicar desconto de 30%
+    agendamentos_anteriores = Appointment.listar_por_usuario(usuario_atual.id)
+    consultas_com_psicologo = [
+        agendamento_anterior for agendamento_anterior in agendamentos_anteriores 
+        if agendamento_anterior.psychologist_id == agendamento.psychologist_id and agendamento_anterior.id != agendamento.id
+    ]
+    
+    é_primeira_consulta = len(consultas_com_psicologo) == 0
+    
+    # Aplicar desconto de 30% se for primeira consulta
+    if é_primeira_consulta:
+        valor = psicologo.consultation_price * 0.7  # 30% de desconto
+    else:
+        valor = psicologo.consultation_price
     
     # Processar pagamento mockado
     time.sleep(0.5)  # Simular delay
@@ -83,7 +93,6 @@ def criar_pagamento(
     
     # Criar registro de pagamento
     pagamento_db = Payment.criar(
-        db,
         appointment_id=pagamento.appointment_id,
         user_id=usuario_atual.id,
         amount=valor,
@@ -94,16 +103,15 @@ def criar_pagamento(
     )
     
     # Atualizar status do agendamento
-    agendamento.atualizar(db, payment_status=status_pagamento, payment_id=id_pagamento)
+    agendamento.atualizar(payment_status=status_pagamento, payment_id=id_pagamento)
     
     if status_pagamento == "paid":
         # Processar pagamento e atualizar saldo do psicólogo (80% para o psicólogo, 20% para a plataforma)
         parte_psicologo = valor * 0.80
-        psicologo.atualizar(db, balance=(psicologo.balance or 0.0) + parte_psicologo)
+        psicologo.atualizar(balance=(psicologo.balance or 0.0) + parte_psicologo)
         
         # Criar notificação para o psicólogo
         Notification.criar(
-            db,
             user_id=psicologo.user_id,
             title="Novo Pagamento Recebido",
             message=f"Você recebeu R$ {parte_psicologo:.2f} de uma consulta.",
@@ -115,7 +123,6 @@ def criar_pagamento(
         
         # Criar notificação para o cliente
         Notification.criar(
-            db,
             user_id=agendamento.user_id,
             title="Pagamento Confirmado",
             message="Seu pagamento foi processado com sucesso.",
@@ -130,11 +137,10 @@ def criar_pagamento(
 @router.get("/agendamento/{id_agendamento}", response_model=PaymentResponse)
 def obter_pagamento_por_agendamento(
     id_agendamento: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter pagamento por id_agendamento"""
-    pagamento = Payment.obter_por_agendamento(db, id_agendamento)
+    pagamento = Payment.obter_por_agendamento(id_agendamento)
     
     if not pagamento:
         raise HTTPException(
@@ -143,7 +149,7 @@ def obter_pagamento_por_agendamento(
         )
     
     # Verificar permissão
-    agendamento = Appointment.obter_por_id(db, id_agendamento)
+    agendamento = Appointment.obter_por_id(id_agendamento)
     
     if not agendamento:
         raise HTTPException(
@@ -153,7 +159,7 @@ def obter_pagamento_por_agendamento(
     
     if agendamento.user_id != usuario_atual.id:
         # Verificar se é psicólogo do agendamento
-        psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
+        psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
         
         if not psicologo or agendamento.psychologist_id != psicologo.id:
             raise HTTPException(
@@ -165,21 +171,19 @@ def obter_pagamento_por_agendamento(
 
 @router.get("/meus-pagamentos", response_model=List[PaymentResponse])
 def obter_meus_pagamentos(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus pagamentos"""
-    pagamentos = Payment.listar_por_usuario(db, usuario_atual.id)
+    pagamentos = Payment.listar_por_usuario(usuario_atual.id)
     return pagamentos
 
 @router.post("/{id_pagamento}/reembolsar", response_model=PaymentResponse)
 def reembolsar_pagamento(
     id_pagamento: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Reembolsar pagamento"""
-    pagamento = Payment.obter_por_id(db, id_pagamento)
+    pagamento = Payment.obter_por_id(id_pagamento)
     
     if not pagamento or pagamento.user_id != usuario_atual.id or pagamento.status != "paid":
         raise HTTPException(
@@ -188,19 +192,18 @@ def reembolsar_pagamento(
         )
     
     transaction_id_refund = f"{pagamento.transaction_id}-REFUND" if pagamento.transaction_id else "REFUND"
-    pagamento.atualizar(db, status="refunded", transaction_id=transaction_id_refund)
+    pagamento.atualizar(status="refunded", transaction_id=transaction_id_refund)
     
     # Atualizar agendamento
-    agendamento = Appointment.obter_por_id(db, pagamento.appointment_id)
+    agendamento = Appointment.obter_por_id(pagamento.appointment_id)
     
     if agendamento:
-        agendamento.atualizar(db, payment_status="refunded", status="cancelled")
+        agendamento.atualizar(payment_status="refunded", status="cancelled")
     
     return pagamento
 
 @router.get("/historico-financeiro", response_model=List[PaymentResponse])
 def obter_historico_financeiro(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter histórico financeiro (para psicólogos)"""
@@ -210,7 +213,7 @@ def obter_historico_financeiro(
             detail="Apenas psicólogos podem visualizar histórico financeiro"
         )
     
-    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
     if not psicologo:
         raise HTTPException(
@@ -219,19 +222,18 @@ def obter_historico_financeiro(
         )
     
     # Obter agendamentos do psicólogo
-    agendamentos = Appointment.listar_por_psicologo(db, psicologo.id)
+    agendamentos = Appointment.listar_por_psicologo(psicologo.id)
     
     ids_agendamentos = [ag.id for ag in agendamentos]
     
     # Filtrar pagamentos pagos dos agendamentos do psicólogo
-    pagamentos = Payment.listar_por_usuario(db, usuario_atual.id)
+    pagamentos = Payment.listar_por_usuario(usuario_atual.id)
     pagamentos = [p for p in pagamentos if p.appointment_id in ids_agendamentos and p.status == 'paid']
     
     return pagamentos
 
 @router.get("/saldo")
 def obter_saldo(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saldo disponível (para psicólogos)"""
@@ -241,7 +243,7 @@ def obter_saldo(
             detail="Apenas psicólogos podem visualizar saldo"
         )
     
-    psicologo = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
     if not psicologo:
         raise HTTPException(

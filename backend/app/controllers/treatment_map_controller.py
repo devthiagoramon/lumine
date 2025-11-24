@@ -1,10 +1,8 @@
 """
 Treatment Map Controller - Endpoints de mapa interativo
 """
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session, joinedload
+from fastapi import APIRouter, Query
 from typing import List, Optional
-from app.database import get_db
 from app.schemas.psychologist import PsychologistListItem
 from app.models.psychologist import Psychologist
 from pydantic import BaseModel
@@ -32,12 +30,10 @@ def obter_mapa_tratamento(
     cidade: Optional[str] = Query(None),
     estado: Optional[str] = Query(None),
     id_especialidade: Optional[int] = Query(None),
-    id_abordagem: Optional[int] = Query(None),
-    db: Session = Depends(get_db)
+    id_abordagem: Optional[int] = Query(None)
 ):
     """Obter mapa interativo de tratamentos"""
     psychologists = Psychologist.buscar_para_mapa(
-        db,
         cidade=cidade,
         estado=estado,
         id_especialidade=id_especialidade,

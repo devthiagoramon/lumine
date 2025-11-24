@@ -19,6 +19,7 @@ const PsychologistProfile = () => {
   const [showReviewForm, setShowReviewForm] = useState(false)
   const [loading, setLoading] = useState(true)
   const [reviewsLoading, setReviewsLoading] = useState(false)
+  const [discountInfo, setDiscountInfo] = useState(null)
 
   const handleAgendarConsulta = () => {
     if (!currentUser) {
@@ -41,8 +42,19 @@ const PsychologistProfile = () => {
     fetchPsychologist()
     if (currentUser) {
       checkFavorite()
+      checkDiscount()
     }
   }, [id, currentUser])
+
+  const checkDiscount = async () => {
+    if (!currentUser || currentUser.is_psychologist) return
+    try {
+      const response = await axios.get(`/api/appointments/verificar-primeira-consulta/${id}`)
+      setDiscountInfo(response.data)
+    } catch (error) {
+      console.error('Erro ao verificar desconto:', error)
+    }
+  }
 
   const fetchPsychologist = async () => {
     try {
@@ -171,11 +183,33 @@ const PsychologistProfile = () => {
                 </div>
               )}
               {psychologist.consultation_price && (
-                <div className="mt-3 flex items-center gap-2">
-                  <span className="text-2xl font-bold text-primary-600">
-                    R$ {psychologist.consultation_price.toFixed(2)}
-                  </span>
-                  <span className="text-gray-600">por consulta</span>
+                <div className="mt-3">
+                  {discountInfo && discountInfo.is_first_appointment ? (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-xl line-through text-gray-400">
+                          R$ {discountInfo.original_price.toFixed(2)}
+                        </span>
+                        <span className="text-2xl font-bold text-primary-600">
+                          R$ {discountInfo.discounted_price.toFixed(2)}
+                        </span>
+                        <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm font-semibold">
+                          -30%
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-600 font-medium">
+                        🎉 Desconto especial para primeira consulta!
+                      </p>
+                      <span className="text-gray-600 text-sm">por consulta</span>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="text-2xl font-bold text-primary-600">
+                        R$ {psychologist.consultation_price.toFixed(2)}
+                      </span>
+                      <span className="text-gray-600">por consulta</span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>
@@ -294,10 +328,32 @@ const PsychologistProfile = () => {
             </div>
             {psychologist.consultation_price && (
               <div className="mt-4">
-                <p className="text-2xl font-bold text-primary-600">
-                  R$ {psychologist.consultation_price.toFixed(2)}
-                </p>
-                <p className="text-sm text-gray-600">por consulta</p>
+                {discountInfo && discountInfo.is_first_appointment ? (
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xl line-through text-gray-400">
+                        R$ {discountInfo.original_price.toFixed(2)}
+                      </p>
+                      <p className="text-2xl font-bold text-primary-600">
+                        R$ {discountInfo.discounted_price.toFixed(2)}
+                      </p>
+                      <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-sm font-semibold">
+                        -30%
+                      </span>
+                    </div>
+                    <p className="text-sm text-green-600 font-medium mb-1">
+                      🎉 Desconto especial para primeira consulta!
+                    </p>
+                    <p className="text-sm text-gray-600">por consulta</p>
+                  </div>
+                ) : (
+                  <>
+                    <p className="text-2xl font-bold text-primary-600">
+                      R$ {psychologist.consultation_price.toFixed(2)}
+                    </p>
+                    <p className="text-sm text-gray-600">por consulta</p>
+                  </>
+                )}
               </div>
             )}
           </div>

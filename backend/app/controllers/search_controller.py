@@ -1,10 +1,8 @@
 """
 Search Controller - Endpoints de busca
 """
-from fastapi import APIRouter, Depends, Query
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Query
 from typing import List, Optional
-from app.database import get_db
 from app.schemas import SearchResponse, SpecialtyResponse, ApproachResponse
 from app.models.specialty import Specialty
 from app.models.approach import Approach
@@ -25,8 +23,7 @@ def buscar_psicologos(
     preco_maximo: Optional[float] = Query(None),
     experiencia_minima: Optional[int] = Query(None),
     pagina: int = Query(1, ge=1),
-    tamanho_pagina: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    tamanho_pagina: int = Query(20, ge=1, le=100)
 ):
     """Buscar psicólogos com filtros"""
     result = Psychologist.buscar_com_filtros(
@@ -46,14 +43,14 @@ def buscar_psicologos(
     return result
 
 @router.get("/specialties", response_model=List[SpecialtyResponse])
-def obter_especialidades(db: Session = Depends(get_db)):
+def obter_especialidades():
     """Listar especialidades"""
-    specialties = Specialty.listar_todos(db)
+    specialties = Specialty.listar_todos()
     return specialties
 
 @router.get("/approaches", response_model=List[ApproachResponse])
-def obter_abordagens(db: Session = Depends(get_db)):
+def obter_abordagens():
     """Listar abordagens"""
-    approaches = Approach.listar_todos(db)
+    approaches = Approach.listar_todos()
     return approaches
 

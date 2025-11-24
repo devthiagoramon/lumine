@@ -2,9 +2,7 @@
 Payment Method Controller - Endpoints para gerenciar métodos de pagamento salvos
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
 from app import auth
 from app.schemas.payment_method import (
     PaymentMethodCreate, PaymentMethodUpdate, PaymentMethodResponse
@@ -45,7 +43,6 @@ def parse_expiry(expiry: str) -> tuple:
 @router.post("/", response_model=PaymentMethodResponse, status_code=status.HTTP_201_CREATED)
 def criar_metodo_pagamento(
     metodo: PaymentMethodCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar novo método de pagamento"""
@@ -74,7 +71,6 @@ def criar_metodo_pagamento(
 
 @router.get("/", response_model=List[PaymentMethodResponse])
 def listar_metodos_pagamento(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Listar métodos de pagamento do usuário"""
@@ -84,7 +80,6 @@ def listar_metodos_pagamento(
 @router.get("/{id_metodo}", response_model=PaymentMethodResponse)
 def obter_metodo_pagamento(
     id_metodo: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter método de pagamento por ID"""
@@ -108,11 +103,10 @@ def obter_metodo_pagamento(
 def atualizar_metodo_pagamento(
     id_metodo: int,
     metodo_update: PaymentMethodUpdate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar método de pagamento"""
-    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    metodo = PaymentMethod.obter_por_id(id_metodo)
     
     if not metodo:
         raise HTTPException(
@@ -147,11 +141,10 @@ def atualizar_metodo_pagamento(
 @router.post("/{id_metodo}/definir-padrao", response_model=PaymentMethodResponse)
 def definir_metodo_padrao(
     id_metodo: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Definir método de pagamento como padrão"""
-    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    metodo = PaymentMethod.obter_por_id(id_metodo)
     
     if not metodo:
         raise HTTPException(
@@ -172,11 +165,10 @@ def definir_metodo_padrao(
 @router.delete("/{id_metodo}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_metodo_pagamento(
     id_metodo: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar método de pagamento"""
-    metodo = PaymentMethod.obter_por_id(db, id_metodo)
+    metodo = PaymentMethod.obter_por_id(id_metodo)
     
     if not metodo:
         raise HTTPException(

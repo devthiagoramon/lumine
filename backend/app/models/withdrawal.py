@@ -27,24 +27,24 @@ class Withdrawal(Base):
     
     # Métodos de acesso ao banco
     @classmethod
-    def obter_por_id(cls, id_saque: int, psychologist_id: Optional[int] = None) -> Optional["Withdrawal"]:
+    def obter_por_id(cls, id_saque: int, id_psicologo: Optional[int] = None) -> Optional["Withdrawal"]:
         """Obter saque por ID"""
         db = get_db_session()
         try:
             query = db.query(cls).filter(cls.id == id_saque)
-            if psychologist_id:
-                query = query.filter(cls.psychologist_id == psychologist_id)
+            if id_psicologo:
+                query = query.filter(cls.psychologist_id == id_psicologo)
             return query.first()
         finally:
             db.close()
     
     @classmethod
-    def listar_por_psicologo(cls, psychologist_id: int) -> List["Withdrawal"]:
+    def listar_por_psicologo(cls, id_psicologo: int) -> List["Withdrawal"]:
         """Listar saques de um psicólogo"""
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == psychologist_id
+                cls.psychologist_id == id_psicologo
             ).order_by(cls.created_at.desc()).all()
         finally:
             db.close()

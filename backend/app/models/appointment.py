@@ -47,11 +47,11 @@ class Appointment(Base):
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, user_id: int, status: Optional[str] = None) -> List["Appointment"]:
+    def listar_por_usuario(cls, id_usuario: int, status: Optional[str] = None) -> List["Appointment"]:
         """Listar agendamentos de um usuário"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.user_id == user_id)
+            query = db.query(cls).filter(cls.user_id == id_usuario)
             if status:
                 query = query.filter(cls.status == status)
             return query.order_by(cls.appointment_date.desc()).all()
@@ -59,11 +59,11 @@ class Appointment(Base):
             db.close()
     
     @classmethod
-    def listar_por_psicologo(cls, psychologist_id: int, status: Optional[str] = None) -> List["Appointment"]:
+    def listar_por_psicologo(cls, id_psicologo: int, status: Optional[str] = None) -> List["Appointment"]:
         """Listar agendamentos de um psicólogo"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.psychologist_id == psychologist_id)
+            query = db.query(cls).filter(cls.psychologist_id == id_psicologo)
             if status:
                 query = query.filter(cls.status == status)
             return query.order_by(cls.appointment_date.desc()).all()
@@ -71,12 +71,12 @@ class Appointment(Base):
             db.close()
     
     @classmethod
-    def listar_por_psicologo_e_periodo(cls, psychologist_id: int, data_inicio: datetime, data_fim: datetime) -> List["Appointment"]:
+    def listar_por_psicologo_e_periodo(cls, id_psicologo: int, data_inicio: datetime, data_fim: datetime) -> List["Appointment"]:
         """Listar agendamentos de um psicólogo em um período"""
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == psychologist_id,
+                cls.psychologist_id == id_psicologo,
                 cls.appointment_date >= data_inicio,
                 cls.appointment_date <= data_fim,
                 cls.status.in_(['pending', 'confirmed'])

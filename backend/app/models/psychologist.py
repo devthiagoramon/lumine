@@ -57,11 +57,11 @@ class Psychologist(Base):
             db.close()
     
     @classmethod
-    def obter_por_user_id(cls, user_id: int) -> Optional["Psychologist"]:
-        """Obter psicólogo por user_id"""
+    def obter_por_user_id(cls, id_usuario: int) -> Optional["Psychologist"]:
+        """Obter psicólogo por id_usuario"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).first()
+            return db.query(cls).filter(cls.user_id == id_usuario).first()
         finally:
             db.close()
     
@@ -113,6 +113,39 @@ class Psychologist(Base):
         finally:
             db.close()
     
+    @classmethod
+    def criar_com_relacionamentos(
+        cls,
+        specialty_ids: Optional[List[int]] = None,
+        approach_ids: Optional[List[int]] = None,
+        **kwargs
+    ) -> "Psychologist":
+        """Criar psicólogo com especialidades e abordagens"""
+        from app.models.specialty import Specialty
+        from app.models.approach import Approach
+        
+        db = get_db_session()
+        try:
+            psicologo = cls(**kwargs)
+            db.add(psicologo)
+            db.flush()  # Para obter o ID
+            
+            # Adicionar especialidades
+            if specialty_ids:
+                especialidades = Specialty.obter_por_ids(specialty_ids)
+                psicologo.specialties = especialidades
+            
+            # Adicionar abordagens
+            if approach_ids:
+                abordagens = Approach.obter_por_ids(approach_ids)
+                psicologo.approaches = abordagens
+            
+            db.commit()
+            db.refresh(psicologo)
+            return psicologo
+        finally:
+            db.close()
+    
     def atualizar(self, **kwargs) -> "Psychologist":
         """Atualizar psicólogo"""
         db = get_db_session()
@@ -124,6 +157,43 @@ class Psychologist(Base):
             for key, value in kwargs.items():
                 if hasattr(psicologo, key):
                     setattr(psicologo, key, value)
+            db.commit()
+            db.refresh(psicologo)
+            return psicologo
+        finally:
+            db.close()
+    
+    def atualizar_com_relacionamentos(
+        self,
+        specialty_ids: Optional[List[int]] = None,
+        approach_ids: Optional[List[int]] = None,
+        **kwargs
+    ) -> "Psychologist":
+        """Atualizar psicólogo com especialidades e abordagens"""
+        from app.models.specialty import Specialty
+        from app.models.approach import Approach
+        
+        db = get_db_session()
+        try:
+            psicologo = db.query(Psychologist).filter(Psychologist.id == self.id).first()
+            if not psicologo:
+                raise ValueError("Psicólogo não encontrado")
+            
+            # Atualizar campos simples
+            for key, value in kwargs.items():
+                if hasattr(psicologo, key):
+                    setattr(psicologo, key, value)
+            
+            # Atualizar especialidades
+            if specialty_ids is not None:
+                especialidades = Specialty.obter_por_ids(specialty_ids)
+                psicologo.specialties = especialidades
+            
+            # Atualizar abordagens
+            if approach_ids is not None:
+                abordagens = Approach.obter_por_ids(approach_ids)
+                psicologo.approaches = abordagens
+            
             db.commit()
             db.refresh(psicologo)
             return psicologo

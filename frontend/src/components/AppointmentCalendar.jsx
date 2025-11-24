@@ -163,7 +163,7 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
   }
 
   const handleDateClick = (day) => {
-    if (day.isAvailable && !day.isPast) {
+    if (!day.isPast && day.isCurrentMonth) {
       setSelectedDateState(day.date)
       if (onSelectSlot) {
         onSelectSlot(null, null) // Limpar seleção de horário ao mudar data
@@ -235,19 +235,17 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
               <button
                 key={index}
                 onClick={() => handleDateClick(day)}
-                disabled={!day.isAvailable || day.isPast || !day.isCurrentMonth}
+                disabled={day.isPast || !day.isCurrentMonth}
                 className={`
                   aspect-square p-2 rounded-lg text-sm font-medium transition-all
                   ${!day.isCurrentMonth ? 'text-gray-300 cursor-default' : ''}
                   ${day.isPast ? 'text-gray-300 cursor-not-allowed bg-gray-50' : ''}
-                  ${day.isToday && !isSelected ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' : ''}
+                  ${day.isToday && !isSelected && day.isCurrentMonth && !day.isPast ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' : ''}
                   ${isSelected ? 'bg-blue-600 text-white shadow-lg scale-105' : ''}
-                  ${day.isAvailable && !day.isPast && day.isCurrentMonth && !isSelected
-                    ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-2 hover:border-blue-200 cursor-pointer border border-transparent'
-                    : ''
-                  }
-                  ${!day.isAvailable && day.isCurrentMonth && !day.isPast
-                    ? 'text-gray-400 bg-gray-50 cursor-not-allowed'
+                  ${!day.isPast && day.isCurrentMonth && !isSelected
+                    ? day.isAvailable
+                      ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-2 hover:border-blue-200 cursor-pointer border border-transparent'
+                      : 'text-gray-400 bg-gray-50 hover:bg-gray-100 cursor-pointer border border-gray-200'
                     : ''
                   }
                   flex flex-col items-center justify-center relative
@@ -311,7 +309,10 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
           ) : (
             <div className="text-center py-8 text-gray-500">
               <CalendarIcon className="mx-auto mb-2 text-gray-400" size={32} />
-              <p>Nenhum horário disponível para esta data</p>
+              <p className="font-medium mb-1">Nenhum horário disponível para esta data</p>
+              <p className="text-sm text-gray-400">
+                Este psicólogo pode não ter horários configurados para este dia da semana.
+              </p>
             </div>
           )}
         </div>

@@ -35,20 +35,20 @@ class Payment(Base):
             db.close()
     
     @classmethod
-    def obter_por_agendamento(cls, appointment_id: int) -> Optional["Payment"]:
+    def obter_por_agendamento(cls, id_agendamento: int) -> Optional["Payment"]:
         """Obter pagamento por agendamento"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.appointment_id == appointment_id).first()
+            return db.query(cls).filter(cls.appointment_id == id_agendamento).first()
         finally:
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, user_id: int) -> List["Payment"]:
+    def listar_por_usuario(cls, id_usuario: int) -> List["Payment"]:
         """Listar pagamentos de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).all()
         finally:
             db.close()
     

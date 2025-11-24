@@ -2,9 +2,7 @@
 Availability Controller - Endpoints de disponibilidade
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
 from app import auth
 from app.schemas import (
     PsychologistAvailabilityCreate, PsychologistAvailabilityUpdate,
@@ -21,7 +19,6 @@ router = APIRouter()
 @router.post("/", response_model=PsychologistAvailabilityResponse, status_code=status.HTTP_201_CREATED)
 def criar_disponibilidade(
     disponibilidade: PsychologistAvailabilityCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar horário de disponibilidade"""
@@ -31,150 +28,145 @@ def criar_disponibilidade(
             detail="Only psychologists can create availability"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
     # Validar dia da semana
     if disponibilidade.day_of_week < 0 or disponibilidade.day_of_week > 6:
         raise HTTPException(
             status_code=400,
-            detail="day_of_week must be between 0 (Monday) and 6 (Sunday)"
+            detail="Dia da semana deve estar entre 0 (Segunda) e 6 (Domingo)"
         )
     
     # Verificar se já existe disponibilidade para este dia
-    existing_availability = PsychologistAvailability.verificar_existente(
-        db, psychologist.id, disponibilidade.day_of_week
+    disponibilidade_existente = PsychologistAvailability.verificar_existente(
+        psicologo.id, disponibilidade.day_of_week
     )
     
-    if existing_availability:
+    if disponibilidade_existente:
         raise HTTPException(
             status_code=400,
-            detail="Availability for this day already exists. Use update instead."
+            detail="Já existe disponibilidade para este dia. Use atualização ao invés."
         )
     
-    db_availability = PsychologistAvailability.criar(
-        db,
-        psychologist_id=psychologist.id,
+    disponibilidade_db = PsychologistAvailability.criar(
+        psychologist_id=psicologo.id,
         day_of_week=disponibilidade.day_of_week,
         start_time=disponibilidade.start_time,
         end_time=disponibilidade.end_time,
         is_available=disponibilidade.is_available if hasattr(disponibilidade, 'is_available') else True
     )
     
-    return db_availability
+    return disponibilidade_db
 
 @router.get("/", response_model=List[PsychologistAvailabilityResponse])
 def obter_minha_disponibilidade(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter horários de disponibilidade do psicólogo logado"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view availability"
+            detail="Apenas psicólogos podem visualizar disponibilidade"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    availability = PsychologistAvailability.listar_por_psicologo(db, psychologist.id)
+    disponibilidades = PsychologistAvailability.listar_por_psicologo(psicologo.id)
     
-    return availability
+    return disponibilidades
 
 @router.get("/psychologist/{id_psicologo}", response_model=List[PsychologistAvailabilityResponse])
 def obter_disponibilidade_psicologo(
-    id_psicologo: int,
-    db: Session = Depends(get_db)
+    id_psicologo: int
 ):
     """Obter horários de disponibilidade de um psicólogo"""
-    psychologist = Psychologist.obter_por_id(db, id_psicologo)
+    psicologo = Psychologist.obter_por_id(id_psicologo)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
-    availability = PsychologistAvailability.listar_por_psicologo(db, id_psicologo, apenas_disponiveis=True)
+    disponibilidades = PsychologistAvailability.listar_por_psicologo(id_psicologo, apenas_disponiveis=True)
     
-    return availability
+    return disponibilidades
 
 @router.put("/{id_disponibilidade}", response_model=PsychologistAvailabilityResponse)
 def atualizar_disponibilidade(
     id_disponibilidade: int,
     atualizacao_disponibilidade: PsychologistAvailabilityUpdate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar horário de disponibilidade"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can update availability"
+            detail="Apenas psicólogos podem atualizar disponibilidade"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    availability = PsychologistAvailability.obter_por_id(db, id_disponibilidade, psychologist_id=psychologist.id)
+    disponibilidade = PsychologistAvailability.obter_por_id(id_disponibilidade, id_psicologo=psicologo.id)
     
-    if not availability:
+    if not disponibilidade:
         raise HTTPException(
             status_code=404,
-            detail="Availability not found"
+            detail="Disponibilidade não encontrada"
         )
     
-    update_data = atualizacao_disponibilidade.dict(exclude_unset=True)
-    availability.atualizar(db, **update_data)
+    dados_atualizacao = atualizacao_disponibilidade.dict(exclude_unset=True)
+    disponibilidade.atualizar(**dados_atualizacao)
     
-    return availability
+    return disponibilidade
 
 @router.delete("/{id_disponibilidade}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_disponibilidade(
     id_disponibilidade: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar horário de disponibilidade"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can delete availability"
+            detail="Apenas psicólogos podem deletar disponibilidade"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    availability = PsychologistAvailability.obter_por_id(db, id_disponibilidade, psychologist_id=psychologist.id)
+    disponibilidade = PsychologistAvailability.obter_por_id(id_disponibilidade, id_psicologo=psicologo.id)
     
-    if not availability:
+    if not disponibilidade:
         raise HTTPException(
             status_code=404,
-            detail="Availability not found"
+            detail="Disponibilidade não encontrada"
         )
     
-    availability.deletar(db)
+    disponibilidade.deletar()
     return None
 
 @router.get("/psychologist/{id_psicologo}/available-slots")
@@ -182,118 +174,117 @@ def obter_horarios_disponiveis(
     id_psicologo: int,
     data_inicio: str,  # Formato YYYY-MM-DD
     data_fim: str,  # Formato YYYY-MM-DD
-    tipo_agendamento: str = "online",
-    db: Session = Depends(get_db)
+    tipo_agendamento: str = "online"
 ):
     """Obter horários disponíveis para agendamento"""
     from datetime import date as date_type
     
     try:
-        start = date_type.fromisoformat(data_inicio)
-        end = date_type.fromisoformat(data_fim)
+        data_inicio_obj = date_type.fromisoformat(data_inicio)
+        data_fim_obj = date_type.fromisoformat(data_fim)
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail="Invalid date format. Use YYYY-MM-DD"
+            detail="Formato de data inválido. Use YYYY-MM-DD"
         )
     
     # Verificar se psicólogo existe
-    psychologist = Psychologist.obter_por_id(db, id_psicologo)
+    psicologo = Psychologist.obter_por_id(id_psicologo)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
     # Validar período (máximo 3 meses)
-    if (end - start).days > 90:
+    if (data_fim_obj - data_inicio_obj).days > 90:
         raise HTTPException(
             status_code=400,
-            detail="Date range cannot exceed 90 days"
+            detail="Período não pode exceder 90 dias"
         )
     
     # Obter disponibilidade semanal do psicólogo
-    weekly_availability = PsychologistAvailability.listar_por_psicologo(db, id_psicologo, apenas_disponiveis=True)
+    disponibilidade_semanal = PsychologistAvailability.listar_por_psicologo(id_psicologo, apenas_disponiveis=True)
     
-    if not weekly_availability:
-        slots = []
+    if not disponibilidade_semanal:
+        horarios = []
     else:
         # Obter agendamentos confirmados/pendentes no período
-        appointments = Appointment.listar_por_psicologo(db, id_psicologo)
+        agendamentos = Appointment.listar_por_psicologo(id_psicologo)
         # Filtrar por período e status
-        appointments = [
-            apt for apt in appointments
-            if apt.appointment_date >= datetime.combine(start, dt_time.min) and
-               apt.appointment_date <= datetime.combine(end, dt_time.max) and
-               apt.status in ['pending', 'confirmed']
+        agendamentos = [
+            agendamento for agendamento in agendamentos
+            if agendamento.appointment_date >= datetime.combine(data_inicio_obj, dt_time.min) and
+               agendamento.appointment_date <= datetime.combine(data_fim_obj, dt_time.max) and
+               agendamento.status in ['pending', 'confirmed']
         ]
         
         # Converter agendamentos para set de (date, time) para busca rápida
-        booked_slots = set()
-        for apt in appointments:
-            apt_date = apt.appointment_date.date()
-            apt_time = apt.appointment_date.time()
-            booked_slots.add((apt_date, apt_time))
+        slots_reservados = set()
+        for agendamento in agendamentos:
+            data_agendamento = agendamento.appointment_date.date()
+            horario_agendamento = agendamento.appointment_date.time()
+            slots_reservados.add((data_agendamento, horario_agendamento))
         
         # Gerar slots disponíveis
-        slots = []
-        current_date = start
+        horarios = []
+        data_atual = data_inicio_obj
         
-        while current_date <= end:
-            day_of_week = current_date.weekday()  # 0=Segunda, 6=Domingo
+        while data_atual <= data_fim_obj:
+            dia_da_semana = data_atual.weekday()  # 0=Segunda, 6=Domingo
             
             # Encontrar disponibilidade para este dia da semana
-            day_availability = [
-                av for av in weekly_availability
-                if av.day_of_week == day_of_week
+            disponibilidade_dia = [
+                disponibilidade for disponibilidade in disponibilidade_semanal
+                if disponibilidade.day_of_week == dia_da_semana
             ]
             
-            for av in day_availability:
+            for disponibilidade in disponibilidade_dia:
                 # Parse dos horários
-                start_time = datetime.strptime(av.start_time, "%H:%M").time()
-                end_time = datetime.strptime(av.end_time, "%H:%M").time()
+                horario_inicio = datetime.strptime(disponibilidade.start_time, "%H:%M").time()
+                horario_fim = datetime.strptime(disponibilidade.end_time, "%H:%M").time()
                 
                 # Gerar slots de 1 hora
-                current_time = start_time
+                horario_atual = horario_inicio
                 
-                while current_time < end_time:
+                while horario_atual < horario_fim:
                     # Calcular próximo horário (1 hora depois)
-                    current_datetime = datetime.combine(current_date, current_time)
-                    next_datetime = current_datetime + timedelta(hours=1)
-                    next_time = next_datetime.time()
+                    data_hora_atual = datetime.combine(data_atual, horario_atual)
+                    proxima_data_hora = data_hora_atual + timedelta(hours=1)
+                    proximo_horario = proxima_data_hora.time()
                     
                     # Verificar se o próximo horário não ultrapassa o fim
-                    if next_time > end_time:
+                    if proximo_horario > horario_fim:
                         break
                     
                     # Verificar se o slot não está ocupado
-                    slot_key = (current_date, current_time)
-                    if slot_key not in booked_slots:
+                    chave_slot = (data_atual, horario_atual)
+                    if chave_slot not in slots_reservados:
                         # Verificar se não é no passado
-                        slot_datetime = datetime.combine(current_date, current_time)
-                        if slot_datetime.tzinfo is None:
-                            slot_datetime = slot_datetime.replace(tzinfo=timezone.utc)
-                        now = datetime.now(timezone.utc)
-                        if slot_datetime > now:
-                            slots.append({
-                                "date": current_date.isoformat(),
-                                "time": current_time.strftime("%H:%M"),
-                                "datetime": slot_datetime.isoformat(),
+                        data_hora_slot = datetime.combine(data_atual, horario_atual)
+                        if data_hora_slot.tzinfo is None:
+                            data_hora_slot = data_hora_slot.replace(tzinfo=timezone.utc)
+                        agora = datetime.now(timezone.utc)
+                        if data_hora_slot > agora:
+                            horarios.append({
+                                "date": data_atual.isoformat(),
+                                "time": horario_atual.strftime("%H:%M"),
+                                "datetime": data_hora_slot.isoformat(),
                                 "available": True
                             })
                     
-                    current_time = next_time
+                    horario_atual = proximo_horario
             
-            current_date += timedelta(days=1)
+            data_atual += timedelta(days=1)
     
     return {
         "psychologist_id": id_psicologo,
         "start_date": data_inicio,
         "end_date": data_fim,
         "appointment_type": tipo_agendamento,
-        "available_slots": slots,
-        "total_slots": len(slots)
+        "available_slots": horarios,
+        "total_slots": len(horarios)
     }
 
 @router.get("/psychologist/{id_psicologo}/available-dates")
@@ -301,132 +292,131 @@ def obter_datas_disponiveis(
     id_psicologo: int,
     data_inicio: str,  # Formato YYYY-MM-DD
     data_fim: str,  # Formato YYYY-MM-DD
-    tipo_agendamento: str = "online",
-    db: Session = Depends(get_db)
+    tipo_agendamento: str = "online"
 ):
     """Obter datas com horários disponíveis (para calendário)"""
     from datetime import date as date_type
     
     try:
-        start = date_type.fromisoformat(data_inicio)
-        end = date_type.fromisoformat(data_fim)
+        data_inicio_obj = date_type.fromisoformat(data_inicio)
+        data_fim_obj = date_type.fromisoformat(data_fim)
     except ValueError:
         raise HTTPException(
             status_code=400,
-            detail="Invalid date format. Use YYYY-MM-DD"
+            detail="Formato de data inválido. Use YYYY-MM-DD"
         )
     
     # Verificar se psicólogo existe
-    psychologist = Psychologist.obter_por_id(db, id_psicologo)
+    psicologo = Psychologist.obter_por_id(id_psicologo)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
     # Validar período (máximo 3 meses)
-    if (end - start).days > 90:
+    if (data_fim_obj - data_inicio_obj).days > 90:
         raise HTTPException(
             status_code=400,
-            detail="Date range cannot exceed 90 days"
+            detail="Período não pode exceder 90 dias"
         )
     
     # Obter slots disponíveis
-    weekly_availability = PsychologistAvailability.listar_por_psicologo(db, id_psicologo, apenas_disponiveis=True)
+    disponibilidade_semanal = PsychologistAvailability.listar_por_psicologo(id_psicologo, apenas_disponiveis=True)
     
-    if not weekly_availability:
-        dates = []
+    if not disponibilidade_semanal:
+        datas = []
     else:
         # Obter agendamentos confirmados/pendentes no período
-        appointments = Appointment.listar_por_psicologo(db, id_psicologo)
+        agendamentos = Appointment.listar_por_psicologo(id_psicologo)
         # Filtrar por período e status
-        appointments = [
-            apt for apt in appointments
-            if apt.appointment_date >= datetime.combine(start, dt_time.min) and
-               apt.appointment_date <= datetime.combine(end, dt_time.max) and
-               apt.status in ['pending', 'confirmed']
+        agendamentos = [
+            agendamento for agendamento in agendamentos
+            if agendamento.appointment_date >= datetime.combine(data_inicio_obj, dt_time.min) and
+               agendamento.appointment_date <= datetime.combine(data_fim_obj, dt_time.max) and
+               agendamento.status in ['pending', 'confirmed']
         ]
         
         # Converter agendamentos para set de (date, time) para busca rápida
-        booked_slots = set()
-        for apt in appointments:
-            apt_date = apt.appointment_date.date()
-            apt_time = apt.appointment_date.time()
-            booked_slots.add((apt_date, apt_time))
+        slots_reservados = set()
+        for agendamento in agendamentos:
+            data_agendamento = agendamento.appointment_date.date()
+            horario_agendamento = agendamento.appointment_date.time()
+            slots_reservados.add((data_agendamento, horario_agendamento))
         
         # Gerar slots disponíveis
-        slots = []
-        current_date = start
+        horarios = []
+        data_atual = data_inicio_obj
         
-        while current_date <= end:
-            day_of_week = current_date.weekday()  # 0=Segunda, 6=Domingo
+        while data_atual <= data_fim_obj:
+            dia_da_semana = data_atual.weekday()  # 0=Segunda, 6=Domingo
             
             # Encontrar disponibilidade para este dia da semana
-            day_availability = [
-                av for av in weekly_availability
-                if av.day_of_week == day_of_week
+            disponibilidade_dia = [
+                disponibilidade for disponibilidade in disponibilidade_semanal
+                if disponibilidade.day_of_week == dia_da_semana
             ]
             
-            for av in day_availability:
+            for disponibilidade in disponibilidade_dia:
                 # Parse dos horários
-                start_time = datetime.strptime(av.start_time, "%H:%M").time()
-                end_time = datetime.strptime(av.end_time, "%H:%M").time()
+                horario_inicio = datetime.strptime(disponibilidade.start_time, "%H:%M").time()
+                horario_fim = datetime.strptime(disponibilidade.end_time, "%H:%M").time()
                 
                 # Gerar slots de 1 hora
-                current_time = start_time
+                horario_atual = horario_inicio
                 
-                while current_time < end_time:
+                while horario_atual < horario_fim:
                     # Calcular próximo horário (1 hora depois)
-                    current_datetime = datetime.combine(current_date, current_time)
-                    next_datetime = current_datetime + timedelta(hours=1)
-                    next_time = next_datetime.time()
+                    data_hora_atual = datetime.combine(data_atual, horario_atual)
+                    proxima_data_hora = data_hora_atual + timedelta(hours=1)
+                    proximo_horario = proxima_data_hora.time()
                     
                     # Verificar se o próximo horário não ultrapassa o fim
-                    if next_time > end_time:
+                    if proximo_horario > horario_fim:
                         break
                     
                     # Verificar se o slot não está ocupado
-                    slot_key = (current_date, current_time)
-                    if slot_key not in booked_slots:
+                    chave_slot = (data_atual, horario_atual)
+                    if chave_slot not in slots_reservados:
                         # Verificar se não é no passado
-                        slot_datetime = datetime.combine(current_date, current_time)
-                        if slot_datetime.tzinfo is None:
-                            slot_datetime = slot_datetime.replace(tzinfo=timezone.utc)
-                        now = datetime.now(timezone.utc)
-                        if slot_datetime > now:
-                            slots.append({
-                                "date": current_date.isoformat(),
-                                "time": current_time.strftime("%H:%M"),
-                                "datetime": slot_datetime.isoformat(),
+                        data_hora_slot = datetime.combine(data_atual, horario_atual)
+                        if data_hora_slot.tzinfo is None:
+                            data_hora_slot = data_hora_slot.replace(tzinfo=timezone.utc)
+                        agora = datetime.now(timezone.utc)
+                        if data_hora_slot > agora:
+                            horarios.append({
+                                "date": data_atual.isoformat(),
+                                "time": horario_atual.strftime("%H:%M"),
+                                "datetime": data_hora_slot.isoformat(),
                                 "available": True
                             })
                     
-                    current_time = next_time
+                    horario_atual = proximo_horario
             
-            current_date += timedelta(days=1)
+            data_atual += timedelta(days=1)
         
         # Agrupar por data
-        dates_dict = {}
-        for slot in slots:
-            slot_date = slot["date"]
-            if slot_date not in dates_dict:
-                dates_dict[slot_date] = {
-                    "date": slot_date,
+        dicionario_datas = {}
+        for horario in horarios:
+            data_slot = horario["date"]
+            if data_slot not in dicionario_datas:
+                dicionario_datas[data_slot] = {
+                    "date": data_slot,
                     "available_slots": [],
                     "count": 0
                 }
-            dates_dict[slot_date]["available_slots"].append(slot["time"])
-            dates_dict[slot_date]["count"] += 1
+            dicionario_datas[data_slot]["available_slots"].append(horario["time"])
+            dicionario_datas[data_slot]["count"] += 1
         
-        dates = list(dates_dict.values())
+        datas = list(dicionario_datas.values())
     
     return {
         "psychologist_id": id_psicologo,
         "start_date": data_inicio,
         "end_date": data_fim,
         "appointment_type": tipo_agendamento,
-        "available_dates": dates,
-        "total_dates": len(dates)
+        "available_dates": datas,
+        "total_dates": len(datas)
     }
 

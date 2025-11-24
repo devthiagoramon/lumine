@@ -2,9 +2,7 @@
 Withdrawal Controller - Endpoints de saques
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
 from app import auth
 from app.schemas import WithdrawalCreate, WithdrawalResponse
 from app.models.user import User
@@ -17,42 +15,40 @@ router = APIRouter()
 @router.post("/", response_model=WithdrawalResponse, status_code=status.HTTP_201_CREATED)
 def criar_saque(
     saque: WithdrawalCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Solicitar saque"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can request withdrawals"
+            detail="Apenas psicólogos podem solicitar saques"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
     # Verificar saldo disponível
-    balance = psychologist.balance or 0.0
-    if saque.amount > balance:
+    saldo = psicologo.balance or 0.0
+    if saque.amount > saldo:
         raise HTTPException(
             status_code=400,
-            detail=f"Insufficient balance. Available: R$ {balance:.2f}"
+            detail=f"Saldo insuficiente. Disponível: R$ {saldo:.2f}"
         )
     
     if saque.amount <= 0:
         raise HTTPException(
             status_code=400,
-            detail="Withdrawal amount must be greater than 0"
+            detail="Valor do saque deve ser maior que 0"
         )
     
     # Criar solicitação de saque
-    db_withdrawal = Withdrawal.criar(
-        db,
-        psychologist_id=psychologist.id,
+    saque_db = Withdrawal.criar(
+        psychologist_id=psicologo.id,
         amount=saque.amount,
         bank_name=saque.bank_name,
         bank_account=saque.bank_account,
@@ -62,74 +58,71 @@ def criar_saque(
     )
     
     # Reservar valor (subtrair do saldo)
-    psychologist.atualizar(db, balance=balance - saque.amount)
+    psicologo.atualizar(balance=saldo - saque.amount)
     
     # Criar notificação
     Notification.criar(
-        db,
         user_id=usuario_atual.id,
         title="Solicitação de Saque Criada",
         message=f"Sua solicitação de saque de R$ {saque.amount:.2f} foi criada e está em análise.",
         type="withdrawal",
-        related_id=db_withdrawal.id,
+        related_id=saque_db.id,
         related_type="withdrawal",
         is_read=False
     )
     
-    return db_withdrawal
+    return saque_db
 
 @router.get("/", response_model=List[WithdrawalResponse])
 def obter_meus_saques(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus saques"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view withdrawals"
+            detail="Apenas psicólogos podem visualizar saques"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    withdrawals = Withdrawal.listar_por_psicologo(db, psychologist.id)
+    saques = Withdrawal.listar_por_psicologo(psicologo.id)
     
-    return withdrawals
+    return saques
 
 @router.get("/{id_saque}", response_model=WithdrawalResponse)
 def obter_saque(
     id_saque: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saque específico"""
     if not usuario_atual.is_psychologist:
         raise HTTPException(
             status_code=403,
-            detail="Only psychologists can view withdrawals"
+            detail="Apenas psicólogos podem visualizar saques"
         )
     
-    psychologist = Psychologist.obter_por_user_id(db, usuario_atual.id)
+    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if not psychologist:
+    if not psicologo:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist profile not found"
+            detail="Perfil de psicólogo não encontrado"
         )
     
-    withdrawal = Withdrawal.obter_por_id(db, id_saque, psychologist_id=psychologist.id)
+    saque = Withdrawal.obter_por_id(id_saque, id_psicologo=psicologo.id)
     
-    if not withdrawal:
+    if not saque:
         raise HTTPException(
             status_code=404,
-            detail="Withdrawal not found"
+            detail="Saque não encontrado"
         )
     
-    return withdrawal
+    return saque
 

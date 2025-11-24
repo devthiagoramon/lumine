@@ -2,9 +2,7 @@
 Forum Controller - Endpoints de fórum
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
 from typing import List, Optional
-from app.database import get_db
 from app import auth
 from app.schemas import (
     ForumPostCreate, ForumPostUpdate, ForumPostResponse,
@@ -20,12 +18,10 @@ router = APIRouter()
 @router.post("/posts", response_model=ForumPostResponse, status_code=status.HTTP_201_CREATED)
 def criar_post(
     post: ForumPostCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar post no fórum"""
-    db_post = ForumPost.criar(
-        db,
+    post_db = ForumPost.criar(
         user_id=usuario_atual.id,
         title=post.title,
         content=post.content,
@@ -34,37 +30,35 @@ def criar_post(
     )
     
     # Recarregar com relacionamentos e contagem de comentários
-    db_post = ForumPost.obter_por_id(db, db_post.id)
+    post_db = ForumPost.obter_por_id(post_db.id)
     
-    return db_post
+    return post_db
 
 @router.get("/posts", response_model=List[ForumPostResponse])
 def listar_posts(
     categoria: Optional[str] = Query(None),
     busca: Optional[str] = Query(None),
     pagina: int = Query(1, ge=1),
-    tamanho_pagina: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db)
+    tamanho_pagina: int = Query(20, ge=1, le=100)
 ):
     """Listar posts do fórum"""
-    posts = ForumPost.listar(db, categoria=categoria, busca=busca, pagina=pagina, tamanho_pagina=tamanho_pagina)
+    posts = ForumPost.listar(categoria=categoria, busca=busca, pagina=pagina, tamanho_pagina=tamanho_pagina)
     return posts
 
 @router.get("/posts/{id_post}", response_model=ForumPostResponse)
 def obter_post(
-    id_post: int,
-    db: Session = Depends(get_db)
+    id_post: int
 ):
     """Obter post por ID"""
-    post = ForumPost.obter_por_id(db, id_post)
+    post = ForumPost.obter_por_id(id_post)
     
     if not post:
         raise HTTPException(
             status_code=404,
-            detail="Post not found"
+            detail="Post não encontrado"
         )
     
-    post.incrementar_visualizacao(db)
+    post.incrementar_visualizacao()
     
     return post
 
@@ -72,68 +66,64 @@ def obter_post(
 def atualizar_post(
     id_post: int,
     atualizacao_post: ForumPostUpdate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar post"""
-    post = ForumPost.obter_por_id(db, id_post)
+    post = ForumPost.obter_por_id(id_post)
     
     if not post:
         raise HTTPException(
             status_code=404,
-            detail="Post not found"
+            detail="Post não encontrado"
         )
     
     if post.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=403,
-            detail="You can only edit your own posts"
+            detail="Você só pode editar seus próprios posts"
         )
     
-    update_data = atualizacao_post.dict(exclude_unset=True)
-    post.atualizar(db, **update_data)
+    dados_atualizacao = atualizacao_post.dict(exclude_unset=True)
+    post.atualizar(**dados_atualizacao)
     
     # Recarregar com relacionamentos
-    db_post = ForumPost.obter_por_id(db, id_post)
+    post_db = ForumPost.obter_por_id(id_post)
     
-    return db_post
+    return post_db
 
 @router.delete("/posts/{id_post}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_post(
     id_post: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar post"""
-    post = ForumPost.obter_por_id(db, id_post)
+    post = ForumPost.obter_por_id(id_post)
     
     if not post or post.user_id != usuario_atual.id:
         raise HTTPException(
             status_code=404,
-            detail="Post not found"
+            detail="Post não encontrado"
         )
     
-    post.deletar(db)
+    post.deletar()
     return None
 
 @router.post("/posts/{id_post}/comments", response_model=ForumCommentResponse, status_code=status.HTTP_201_CREATED)
 def criar_comentario(
     id_post: int,
     comentario: ForumCommentCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar comentário"""
     # Verificar se post existe
-    post = ForumPost.obter_por_id(db, id_post)
+    post = ForumPost.obter_por_id(id_post)
     if not post:
         raise HTTPException(
             status_code=404,
-            detail="Post not found"
+            detail="Post não encontrado"
         )
     
-    db_comment = ForumComment.criar(
-        db,
+    comentario_db = ForumComment.criar(
         post_id=id_post,
         user_id=usuario_atual.id,
         content=comentario.content,
@@ -141,18 +131,17 @@ def criar_comentario(
     )
     
     # Recarregar com relacionamentos
-    db_comment = ForumComment.obter_por_id(db, db_comment.id, carregar_relacionamentos=True)
+    comentario_db = ForumComment.obter_por_id_com_relacionamentos(comentario_db.id)
     
-    return db_comment
+    return comentario_db
 
 @router.get("/posts/{id_post}/comments", response_model=List[ForumCommentResponse])
 def obter_comentarios(
-    id_post: int,
-    db: Session = Depends(get_db)
+    id_post: int
 ):
     """Obter comentários de um post"""
-    comments = ForumComment.listar_por_post(db, id_post)
-    return comments
+    comentarios = ForumComment.listar_por_post(id_post)
+    return comentarios
 
 @router.get("/categories")
 def obter_categorias():

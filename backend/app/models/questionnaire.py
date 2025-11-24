@@ -40,20 +40,20 @@ class Questionnaire(Base):
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, user_id: int) -> List["Questionnaire"]:
+    def listar_por_usuario(cls, id_usuario: int) -> List["Questionnaire"]:
         """Listar questionários de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).all()
         finally:
             db.close()
     
     @classmethod
-    def obter_mais_recente(cls, user_id: int) -> Optional["Questionnaire"]:
+    def obter_mais_recente(cls, id_usuario: int) -> Optional["Questionnaire"]:
         """Obter questionário mais recente de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).order_by(cls.created_at.desc()).first()
+            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).first()
         finally:
             db.close()
     

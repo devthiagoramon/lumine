@@ -25,14 +25,14 @@ class Notification(Base):
     @classmethod
     def listar_por_usuario(
         cls,
-        user_id: int,
+        id_usuario: int,
         lida: Optional[bool] = None,
         limite: int = 50
     ) -> List["Notification"]:
         """Listar notificações de um usuário"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.user_id == user_id)
+            query = db.query(cls).filter(cls.user_id == id_usuario)
             
             if lida is not None:
                 query = query.filter(cls.is_read == lida)
@@ -42,12 +42,12 @@ class Notification(Base):
             db.close()
     
     @classmethod
-    def contar_nao_lidas(cls, user_id: int) -> int:
+    def contar_nao_lidas(cls, id_usuario: int) -> int:
         """Contar notificações não lidas de um usuário"""
         db = get_db_session()
         try:
             return db.query(func.count(cls.id)).filter(
-                cls.user_id == user_id,
+                cls.user_id == id_usuario,
                 cls.is_read == False
             ).scalar()
         finally:
@@ -81,12 +81,12 @@ class Notification(Base):
             db.close()
     
     @classmethod
-    def marcar_todas_como_lidas(cls, user_id: int) -> int:
+    def marcar_todas_como_lidas(cls, id_usuario: int) -> int:
         """Marcar todas as notificações de um usuário como lidas"""
         db = get_db_session()
         try:
             atualizadas = db.query(cls).filter(
-                cls.user_id == user_id,
+                cls.user_id == id_usuario,
                 cls.is_read == False
             ).update({"is_read": True})
             db.commit()

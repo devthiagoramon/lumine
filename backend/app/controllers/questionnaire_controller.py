@@ -2,9 +2,7 @@
 Questionnaire Controller - Endpoints de questionário
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
 from app import auth
 from app.schemas import QuestionnaireCreate, QuestionnaireResponse
 from app.models.user import User
@@ -15,7 +13,6 @@ router = APIRouter()
 @router.post("/", response_model=QuestionnaireResponse, status_code=status.HTTP_201_CREATED)
 def criar_questionario(
     questionario: QuestionnaireCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Responder questionário de autopercepção"""
@@ -49,7 +46,6 @@ def criar_questionario(
     
     # Criar questionário
     questionario_db = Questionnaire.criar(
-        db,
         user_id=usuario_atual.id,
         question_1=questionario.question_1,
         question_2=questionario.question_2,
@@ -68,20 +64,18 @@ def criar_questionario(
 
 @router.get("/", response_model=List[QuestionnaireResponse])
 def obter_meus_questionarios(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus questionários"""
-    questionarios = Questionnaire.listar_por_usuario(db, usuario_atual.id)
+    questionarios = Questionnaire.listar_por_usuario(usuario_atual.id)
     return questionarios
 
 @router.get("/mais-recente", response_model=QuestionnaireResponse)
 def obter_questionario_mais_recente(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter questionário mais recente"""
-    questionario = Questionnaire.obter_mais_recente(db, usuario_atual.id)
+    questionario = Questionnaire.obter_mais_recente(usuario_atual.id)
     
     if not questionario:
         raise HTTPException(

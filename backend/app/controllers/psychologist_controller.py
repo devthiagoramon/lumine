@@ -2,24 +2,19 @@
 Psychologist Controller - Endpoints de psicólogos
 """
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session, joinedload
 from typing import List
-from app.database import get_db
 from app import auth
 from app.schemas import (
     PsychologistCreate, PsychologistUpdate, PsychologistResponse, PsychologistListItem
 )
 from app.models.user import User
 from app.models.psychologist import Psychologist
-from app.models.specialty import Specialty
-from app.models.approach import Approach
 
 router = APIRouter()
 
 @router.post("/", response_model=PsychologistResponse, status_code=status.HTTP_201_CREATED)
 def criar_perfil_psicologo(
     psicologo: PsychologistCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar perfil de psicólogo"""
@@ -46,27 +41,14 @@ def criar_perfil_psicologo(
             detail="CRP já registrado"
         )
     
-    # Criar perfil usando a sessão do FastAPI
+    # Criar perfil com relacionamentos
     dados_psicologo = psicologo.dict(exclude={"specialty_ids", "approach_ids"})
-    psicologo_db = Psychologist(
+    psicologo_db = Psychologist.criar_com_relacionamentos(
         user_id=usuario_atual.id,
+        specialty_ids=psicologo.specialty_ids,
+        approach_ids=psicologo.approach_ids,
         **dados_psicologo
     )
-    db.add(psicologo_db)
-    db.flush()  # Para obter o ID
-    
-    # Adicionar especialidades
-    if psicologo.specialty_ids:
-        especialidades = db.query(Specialty).filter(Specialty.id.in_(psicologo.specialty_ids)).all()
-        psicologo_db.specialties = especialidades
-    
-    # Adicionar abordagens
-    if psicologo.approach_ids:
-        abordagens = db.query(Approach).filter(Approach.id.in_(psicologo.approach_ids)).all()
-        psicologo_db.approaches = abordagens
-    
-    db.commit()
-    db.refresh(psicologo_db)
     
     # Recarregar com relacionamentos
     psicologo_db = Psychologist.obter_por_id(psicologo_db.id, carregar_relacionamentos=True)
@@ -75,7 +57,6 @@ def criar_perfil_psicologo(
 
 @router.get("/me", response_model=PsychologistResponse)
 def obter_meu_perfil(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meu perfil de psicólogo"""
@@ -92,7 +73,6 @@ def obter_meu_perfil(
 @router.put("/me", response_model=PsychologistResponse)
 def atualizar_meu_perfil(
     atualizacao_psicologo: PsychologistUpdate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar meu perfil de psicólogo"""
@@ -103,32 +83,13 @@ def atualizar_meu_perfil(
             detail="Perfil de psicólogo não encontrado"
         )
     
-    # Buscar psicólogo na sessão atual
-    psicologo_db = db.query(Psychologist).filter(Psychologist.id == psicologo.id).first()
-    if not psicologo_db:
-        raise HTTPException(
-            status_code=404,
-            detail="Perfil de psicólogo não encontrado"
-        )
-    
-    # Atualizar campos
+    # Atualizar campos e relacionamentos
     dados_atualizacao = atualizacao_psicologo.dict(exclude_unset=True, exclude={"specialty_ids", "approach_ids"})
-    for key, value in dados_atualizacao.items():
-        if hasattr(psicologo_db, key):
-            setattr(psicologo_db, key, value)
-    
-    # Atualizar especialidades
-    if atualizacao_psicologo.specialty_ids is not None:
-        especialidades = db.query(Specialty).filter(Specialty.id.in_(atualizacao_psicologo.specialty_ids)).all()
-        psicologo_db.specialties = especialidades
-    
-    # Atualizar abordagens
-    if atualizacao_psicologo.approach_ids is not None:
-        abordagens = db.query(Approach).filter(Approach.id.in_(atualizacao_psicologo.approach_ids)).all()
-        psicologo_db.approaches = abordagens
-    
-    db.commit()
-    db.refresh(psicologo_db)
+    psicologo_db = psicologo.atualizar_com_relacionamentos(
+        specialty_ids=atualizacao_psicologo.specialty_ids,
+        approach_ids=atualizacao_psicologo.approach_ids,
+        **dados_atualizacao
+    )
     
     # Recarregar com relacionamentos
     psicologo_db = Psychologist.obter_por_id(psicologo_db.id, carregar_relacionamentos=True)
@@ -137,15 +98,10 @@ def atualizar_meu_perfil(
 
 @router.get("/{id_psicologo}", response_model=PsychologistResponse)
 def obter_psicologo(
-    id_psicologo: int,
-    db: Session = Depends(get_db)
+    id_psicologo: int
 ):
     """Obter psicólogo por ID"""
-    psicologo = db.query(Psychologist).options(
-        joinedload(Psychologist.user),
-        joinedload(Psychologist.specialties),
-        joinedload(Psychologist.approaches)
-    ).filter(Psychologist.id == id_psicologo).first()
+    psicologo = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
     
     if not psicologo:
         raise HTTPException(
@@ -157,8 +113,7 @@ def obter_psicologo(
 @router.get("/", response_model=List[PsychologistListItem])
 def listar_psicologos(
     pular: int = 0,
-    limite: int = 20,
-    db: Session = Depends(get_db)
+    limite: int = 20
 ):
     """Listar psicólogos"""
     psicologos = Psychologist.listar_verificados(pular=pular, limite=limite)

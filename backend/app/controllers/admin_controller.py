@@ -2,9 +2,7 @@
 Admin Controller - Endpoints administrativos
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
-from app.database import get_db
 from app import auth
 from app.schemas import (
     PsychologistResponse, ForumPostResponse, PsychologistPreRegistrationResponse
@@ -25,33 +23,30 @@ router = APIRouter()
 
 @router.get("/psychologists/pending", response_model=List[PsychologistResponse])
 def listar_psicologos_pendentes(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Lista todos os psicólogos pendentes de validação"""
-    psychologists = Psychologist.listar_pendentes(db)
+    psychologists = Psychologist.listar_pendentes()
     return psychologists
 
 @router.put("/psychologists/{id_psicologo}/verify", response_model=PsychologistResponse)
 def verificar_psicologo(
     id_psicologo: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Valida o cadastro de um psicólogo"""
-    psychologist = Psychologist.obter_por_id(db, id_psicologo, carregar_relacionamentos=True)
+    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
     
     if not psychologist:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
-    psychologist.atualizar(db, is_verified=True)
+    psychologist.atualizar(is_verified=True)
     
     # Criar notificação para o psicólogo
     Notification.criar(
-        db,
         user_id=psychologist.user_id,
         title="Cadastro Verificado",
         message="Seu cadastro foi verificado e aprovado pela administração.",
@@ -62,7 +57,7 @@ def verificar_psicologo(
     )
     
     # Recarregar com relacionamentos
-    psychologist = Psychologist.obter_por_id(db, id_psicologo, carregar_relacionamentos=True)
+    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
     
     return psychologist
 
@@ -70,23 +65,21 @@ def verificar_psicologo(
 def desverificar_psicologo(
     id_psicologo: int,
     motivo: str = Query(..., min_length=5, description="Motivo da desvalidação"),
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Remove a validação de um psicólogo"""
-    psychologist = Psychologist.obter_por_id(db, id_psicologo, carregar_relacionamentos=True)
+    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
     
     if not psychologist:
         raise HTTPException(
             status_code=404,
-            detail="Psychologist not found"
+            detail="Psicólogo não encontrado"
         )
     
-    psychologist.atualizar(db, is_verified=False)
+    psychologist.atualizar(is_verified=False)
     
     # Criar notificação para o psicólogo
     Notification.criar(
-        db,
         user_id=psychologist.user_id,
         title="Cadastro Desverificado",
         message=f"Seu cadastro foi desverificado pela administração. Motivo: {motivo}",
@@ -97,7 +90,7 @@ def desverificar_psicologo(
     )
     
     # Recarregar com relacionamentos
-    psychologist = Psychologist.obter_por_id(db, id_psicologo, carregar_relacionamentos=True)
+    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
     
     return psychologist
 
@@ -106,24 +99,22 @@ def desverificar_psicologo(
 @router.delete("/forum/posts/{id_post}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_post_como_admin(
     id_post: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Deletar post como administrador"""
-    post = ForumPost.obter_por_id(db, id_post)
+    post = ForumPost.obter_por_id(id_post)
     
     if not post:
         raise HTTPException(
             status_code=404,
-            detail="Post not found"
+            detail="Post não encontrado"
         )
     
     user_id_post = post.user_id
-    post.deletar(db)
+    post.deletar()
     
     # Criar notificação para o autor
     Notification.criar(
-        db,
         user_id=user_id_post,
         title="Post Removido",
         message="Seu post foi removido pela administração.",
@@ -139,46 +130,42 @@ def deletar_post_como_admin(
 def listar_todos_posts(
     pagina: int = Query(1, ge=1),
     tamanho_pagina: int = Query(20, ge=1, le=100),
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Listar todos os posts (admin)"""
-    posts = ForumPost.listar(db, pagina=pagina, tamanho_pagina=tamanho_pagina)
+    posts = ForumPost.listar(pagina=pagina, tamanho_pagina=tamanho_pagina)
     return posts
 
 # ========== ROTAS PARA PRÉ-CADASTRO ==========
 
 @router.get("/pre-registrations/pending", response_model=List[PsychologistPreRegistrationResponse])
 def listar_pre_cadastros_pendentes(
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Listar pré-cadastros pendentes"""
-    pre_registrations = PsychologistPreRegistration.listar_pendentes(db)
+    pre_registrations = PsychologistPreRegistration.listar_pendentes()
     return pre_registrations
 
 @router.post("/pre-registrations/{id_pre_cadastro}/approve", response_model=PsychologistResponse)
 def aprovar_pre_cadastro(
     id_pre_cadastro: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Aprovar pré-cadastro e criar perfil de psicólogo"""
-    pre_reg = PsychologistPreRegistration.obter_por_id(db, id_pre_cadastro)
+    pre_reg = PsychologistPreRegistration.obter_por_id(id_pre_cadastro)
     
     if not pre_reg or pre_reg.status != 'pending':
         raise HTTPException(
             status_code=404,
-            detail="Pre-registration not found or already processed"
+            detail="Pré-cadastro não encontrado ou já processado"
         )
     
     # Parse specialty_ids e approach_ids
     specialty_ids = json.loads(pre_reg.specialty_ids) if pre_reg.specialty_ids else []
     approach_ids = json.loads(pre_reg.approach_ids) if pre_reg.approach_ids else []
     
-    # Criar perfil de psicólogo
-    psychologist = Psychologist.criar(
-        db,
+    # Criar perfil de psicólogo com relacionamentos
+    psychologist = Psychologist.criar_com_relacionamentos(
         user_id=pre_reg.user_id,
         crp=pre_reg.crp,
         bio=pre_reg.bio,
@@ -190,24 +177,16 @@ def aprovar_pre_cadastro(
         city=pre_reg.city,
         state=pre_reg.state,
         zip_code=pre_reg.zip_code,
-        is_verified=False
+        is_verified=False,
+        specialty_ids=specialty_ids,
+        approach_ids=approach_ids
     )
     
-    # Adicionar especialidades e abordagens
-    if specialty_ids:
-        specialties = Specialty.obter_por_ids(db, specialty_ids)
-        psychologist.specialties = specialties
-    
-    if approach_ids:
-        approaches = Approach.obter_por_ids(db, approach_ids)
-        psychologist.approaches = approaches
-    
     # Atualizar status do pré-cadastro
-    pre_reg.atualizar(db, status='approved')
+    pre_reg.atualizar(status='approved')
     
     # Criar notificação para o usuário
     Notification.criar(
-        db,
         user_id=psychologist.user_id,
         title="Pré-cadastro Aprovado",
         message="Seu pré-cadastro foi aprovado e seu perfil de psicólogo foi criado.",
@@ -218,7 +197,7 @@ def aprovar_pre_cadastro(
     )
     
     # Recarregar com relacionamentos
-    psychologist = Psychologist.obter_por_id(db, psychologist.id, carregar_relacionamentos=True)
+    psychologist = Psychologist.obter_por_id(psychologist.id, carregar_relacionamentos=True)
     
     return psychologist
 
@@ -226,23 +205,21 @@ def aprovar_pre_cadastro(
 def rejeitar_pre_cadastro(
     id_pre_cadastro: int,
     motivo_rejeicao: str,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Rejeitar pré-cadastro"""
-    pre_registration = PsychologistPreRegistration.obter_por_id(db, id_pre_cadastro)
+    pre_registration = PsychologistPreRegistration.obter_por_id(id_pre_cadastro)
     
     if not pre_registration:
         raise HTTPException(
             status_code=404,
-            detail="Pre-registration not found"
+            detail="Pré-cadastro não encontrado"
         )
     
-    pre_registration.atualizar(db, status='rejected', rejection_reason=motivo_rejeicao)
+    pre_registration.atualizar(status='rejected', rejection_reason=motivo_rejeicao)
     
     # Criar notificação para o usuário
     Notification.criar(
-        db,
         user_id=pre_registration.user_id,
         title="Pré-cadastro Rejeitado",
         message=f"Seu pré-cadastro foi rejeitado. Motivo: {motivo_rejeicao}",
@@ -252,5 +229,5 @@ def rejeitar_pre_cadastro(
         is_read=False
     )
     
-    return {"message": "Pre-registration rejected", "pre_registration": pre_registration}
+    return {"message": "Pré-cadastro rejeitado", "pre_registration": pre_registration}
 

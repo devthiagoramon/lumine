@@ -2,10 +2,8 @@
 Emotion Diary Controller - Endpoints de diário de emoções
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
-from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime
-from app.database import get_db
 from app import auth
 from app.schemas import (
     EmotionDiaryCreate, EmotionDiaryUpdate, EmotionDiaryResponse
@@ -18,7 +16,6 @@ router = APIRouter()
 @router.post("/", response_model=EmotionDiaryResponse, status_code=status.HTTP_201_CREATED)
 def criar_entrada(
     entrada: EmotionDiaryCreate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar entrada no diário"""
@@ -26,10 +23,10 @@ def criar_entrada(
     if entrada.intensity < 1 or entrada.intensity > 10:
         raise HTTPException(
             status_code=400,
-            detail="Intensity must be between 1 and 10"
+            detail="Intensidade deve estar entre 1 e 10"
         )
     
-    db_entry = EmotionDiary.criar(
+    entrada_db = EmotionDiary.criar(
         user_id=usuario_atual.id,
         date=entrada.date,
         emotion=entrada.emotion,
@@ -37,71 +34,67 @@ def criar_entrada(
         notes=entrada.notes,
         tags=entrada.tags
     )
-    return db_entry
+    return entrada_db
 
 @router.get("/", response_model=List[EmotionDiaryResponse])
 def obter_entradas(
     data_inicio: Optional[datetime] = Query(None, alias="data_inicio"),
     data_fim: Optional[datetime] = Query(None, alias="data_fim"),
     emocao: Optional[str] = Query(None),
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entradas do diário"""
-    entries = EmotionDiary.listar_por_usuario(
+    entradas = EmotionDiary.listar_por_usuario(
         usuario_atual.id, 
         data_inicio=data_inicio, 
         data_fim=data_fim, 
         emocao=emocao
     )
-    return entries
+    return entradas
 
 @router.get("/stats")
 def obter_estatisticas(
     data_inicio: Optional[datetime] = Query(None, alias="data_inicio"),
     data_fim: Optional[datetime] = Query(None, alias="data_fim"),
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter estatísticas do diário"""
-    stats = EmotionDiary.obter_estatisticas(
+    estatisticas = EmotionDiary.obter_estatisticas(
         usuario_atual.id, 
         data_inicio=data_inicio, 
         data_fim=data_fim
     )
-    return stats
+    return estatisticas
 
 @router.get("/{id_entrada}", response_model=EmotionDiaryResponse)
 def obter_entrada(
     id_entrada: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter entrada por ID"""
-    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
+    entrada = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
-    if not entry:
+    if not entrada:
         raise HTTPException(
             status_code=404,
-            detail="Entry not found"
+            detail="Entrada não encontrada"
         )
     
-    return entry
+    return entrada
 
 @router.put("/{id_entrada}", response_model=EmotionDiaryResponse)
 def atualizar_entrada(
     id_entrada: int,
     atualizacao_entrada: EmotionDiaryUpdate,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar entrada"""
-    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
+    entrada = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
-    if not entry:
+    if not entrada:
         raise HTTPException(
             status_code=404,
-            detail="Entry not found"
+            detail="Entrada não encontrada"
         )
     
     # Validar intensidade se fornecida
@@ -109,30 +102,29 @@ def atualizar_entrada(
         if atualizacao_entrada.intensity < 1 or atualizacao_entrada.intensity > 10:
             raise HTTPException(
                 status_code=400,
-                detail="Intensity must be between 1 and 10"
+                detail="Intensidade deve estar entre 1 e 10"
             )
     
-    update_data = atualizacao_entrada.dict(exclude_unset=True)
-    entry.atualizar(**update_data)
+    dados_atualizacao = atualizacao_entrada.dict(exclude_unset=True)
+    entrada.atualizar(**dados_atualizacao)
     
-    return entry
+    return entrada
 
 @router.delete("/{id_entrada}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_entrada(
     id_entrada: int,
-    db: Session = Depends(get_db),
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar entrada"""
-    entry = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
+    entrada = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
     
-    if not entry:
+    if not entrada:
         raise HTTPException(
             status_code=404,
-            detail="Entry not found"
+            detail="Entrada não encontrada"
         )
     
-    entry.deletar()
+    entrada.deletar()
     return None
 
 @router.get("/emotions/list")

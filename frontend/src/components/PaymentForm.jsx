@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { CreditCard, X, CheckCircle, AlertCircle } from 'lucide-react'
 
@@ -13,6 +13,42 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState(false)
+  const [discountInfo, setDiscountInfo] = useState(null)
+
+  // Calcular desconto se for primeira consulta
+  const calculatePrice = () => {
+    if (!appointment?.psychologist?.consultation_price) return 0
+    
+    const originalPrice = appointment.psychologist.consultation_price
+    
+    // Se temos informação de desconto, usar ela
+    if (discountInfo && discountInfo.is_first_appointment) {
+      return discountInfo.discounted_price
+    }
+    
+    // Caso contrário, assumir que pode ser primeira consulta (backend vai aplicar o desconto)
+    // Por padrão, mostrar o preço original, mas indicar que pode ter desconto
+    return originalPrice
+  }
+
+  const finalPrice = calculatePrice()
+  const originalPrice = appointment?.psychologist?.consultation_price || 0
+  const hasDiscount = discountInfo && discountInfo.is_first_appointment
+
+  useEffect(() => {
+    // Buscar informação de desconto quando o componente for montado
+    const fetchDiscountInfo = async () => {
+      if (appointment?.psychologist?.id) {
+        try {
+          const response = await axios.get(`/api/appointments/verificar-primeira-consulta/${appointment.psychologist.id}`)
+          setDiscountInfo(response.data)
+        } catch (error) {
+          console.error('Erro ao verificar desconto:', error)
+        }
+      }
+    }
+    fetchDiscountInfo()
+  }, [appointment?.psychologist?.id])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -126,14 +162,38 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <p className="text-sm text-gray-700 mb-1">
-          <span className="font-medium">Valor:</span> R$ {appointment.psychologist?.consultation_price?.toFixed(2) || '0.00'}
-        </p>
-        <p className="text-sm text-gray-700 mb-1">
           <span className="font-medium">Psicólogo:</span> {appointment.psychologist?.user?.full_name || 'N/A'}
         </p>
-        <p className="text-sm text-gray-700">
+        <p className="text-sm text-gray-700 mb-2">
           <span className="font-medium">Data:</span> {new Date(appointment.appointment_date).toLocaleString('pt-BR')}
         </p>
+        <div className="border-t pt-2 mt-2">
+          {hasDiscount ? (
+            <>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-sm text-gray-600 line-through">
+                  R$ {originalPrice.toFixed(2)}
+                </span>
+                <span className="px-2 py-1 bg-green-100 text-green-700 rounded text-xs font-semibold">
+                  -30% Desconto
+                </span>
+              </div>
+              <p className="text-xs text-green-600 font-medium mb-2">
+                🎉 Desconto especial para primeira consulta!
+              </p>
+            </>
+          ) : (
+            <p className="text-xs text-gray-500 mb-2">
+              💡 Desconto de 30% aplicado automaticamente na primeira consulta
+            </p>
+          )}
+          <p className="text-base font-bold text-primary-600">
+            <span className="font-medium">Total a pagar:</span>
+            <span className="ml-2">
+              R$ {finalPrice.toFixed(2)}
+            </span>
+          </p>
+        </div>
       </div>
 
       <div>

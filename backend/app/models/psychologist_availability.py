@@ -23,23 +23,23 @@ class PsychologistAvailability(Base):
     
     # Métodos de acesso ao banco
     @classmethod
-    def obter_por_id(cls, id_disponibilidade: int, psychologist_id: Optional[int] = None) -> Optional["PsychologistAvailability"]:
+    def obter_por_id(cls, id_disponibilidade: int, id_psicologo: Optional[int] = None) -> Optional["PsychologistAvailability"]:
         """Obter disponibilidade por ID"""
         db = get_db_session()
         try:
             query = db.query(cls).filter(cls.id == id_disponibilidade)
-            if psychologist_id:
-                query = query.filter(cls.psychologist_id == psychologist_id)
+            if id_psicologo:
+                query = query.filter(cls.psychologist_id == id_psicologo)
             return query.first()
         finally:
             db.close()
     
     @classmethod
-    def listar_por_psicologo(cls, psychologist_id: int, apenas_disponiveis: bool = False) -> List["PsychologistAvailability"]:
+    def listar_por_psicologo(cls, id_psicologo: int, apenas_disponiveis: bool = False) -> List["PsychologistAvailability"]:
         """Listar disponibilidades de um psicólogo"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.psychologist_id == psychologist_id)
+            query = db.query(cls).filter(cls.psychologist_id == id_psicologo)
             if apenas_disponiveis:
                 query = query.filter(cls.is_available == True)
             return query.order_by(cls.day_of_week).all()
@@ -47,13 +47,13 @@ class PsychologistAvailability(Base):
             db.close()
     
     @classmethod
-    def verificar_existente(cls, psychologist_id: int, day_of_week: int) -> Optional["PsychologistAvailability"]:
+    def verificar_existente(cls, id_psicologo: int, dia_da_semana: int) -> Optional["PsychologistAvailability"]:
         """Verificar se já existe disponibilidade para um dia da semana"""
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == psychologist_id,
-                cls.day_of_week == day_of_week
+                cls.psychologist_id == id_psicologo,
+                cls.day_of_week == dia_da_semana
             ).first()
         finally:
             db.close()

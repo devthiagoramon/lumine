@@ -30,54 +30,54 @@ class Review(Base):
             db.close()
     
     @classmethod
-    def listar_por_psicologo(cls, psychologist_id: int) -> List["Review"]:
+    def listar_por_psicologo(cls, id_psicologo: int) -> List["Review"]:
         """Listar avaliações de um psicólogo"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.psychologist_id == psychologist_id).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.psychologist_id == id_psicologo).order_by(cls.created_at.desc()).all()
         finally:
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, user_id: int) -> List["Review"]:
+    def listar_por_usuario(cls, id_usuario: int) -> List["Review"]:
         """Listar avaliações de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).all()
         finally:
             db.close()
     
     @classmethod
-    def verificar_existente(cls, psychologist_id: int, user_id: int) -> Optional["Review"]:
+    def verificar_existente(cls, id_psicologo: int, id_usuario: int) -> Optional["Review"]:
         """Verificar se já existe avaliação do usuário para o psicólogo"""
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == psychologist_id,
-                cls.user_id == user_id
+                cls.psychologist_id == id_psicologo,
+                cls.user_id == id_usuario
             ).first()
         finally:
             db.close()
     
     @classmethod
-    def calcular_rating_medio(cls, psychologist_id: int) -> float:
+    def calcular_rating_medio(cls, id_psicologo: int) -> float:
         """Calcular rating médio de um psicólogo"""
         db = get_db_session()
         try:
             resultado = db.query(func.avg(cls.rating)).filter(
-                cls.psychologist_id == psychologist_id
+                cls.psychologist_id == id_psicologo
             ).scalar()
             return float(resultado) if resultado else 0.0
         finally:
             db.close()
     
     @classmethod
-    def contar_total(cls, psychologist_id: int) -> int:
+    def contar_total(cls, id_psicologo: int) -> int:
         """Contar total de avaliações de um psicólogo"""
         db = get_db_session()
         try:
             return db.query(func.count(cls.id)).filter(
-                cls.psychologist_id == psychologist_id
+                cls.psychologist_id == id_psicologo
             ).scalar()
         finally:
             db.close()

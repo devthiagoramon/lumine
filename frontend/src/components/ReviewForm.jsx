@@ -41,7 +41,13 @@ const ReviewForm = ({ psychologist, onSuccess, onCancel }) => {
       await axios.post('/api/reviews/', reviewData)
       onSuccess()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao criar avaliação')
+      const errorMessage = err.response?.data?.detail || 'Erro ao criar avaliação'
+      // Mensagem mais amigável para o erro de consulta não concluída
+      if (errorMessage.includes('consultas concluídas') || err.response?.status === 403) {
+        setError('Você só pode avaliar psicólogos com os quais já teve consultas concluídas. Agende e complete uma consulta primeiro.')
+      } else {
+        setError(errorMessage)
+      }
     } finally {
       setLoading(false)
     }

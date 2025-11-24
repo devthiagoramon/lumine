@@ -78,6 +78,36 @@ def criar_agendamento(
     
     return agendamento_db
 
+@router.get("/verificar-primeira-consulta/{id_psicologo}")
+def verificar_primeira_consulta(
+    id_psicologo: int,
+    usuario_atual: User = Depends(auth.get_current_active_user)
+):
+    """Verificar se é a primeira consulta do usuário com o psicólogo"""
+    # Verificar se psicólogo existe
+    psicologo = Psychologist.obter_por_id(id_psicologo)
+    if not psicologo:
+        raise HTTPException(
+            status_code=404,
+            detail="Psicólogo não encontrado"
+        )
+    
+    # Verificar se o usuário já teve consultas com este psicólogo
+    agendamentos = Appointment.listar_por_usuario(usuario_atual.id)
+    consultas_com_psicologo = [
+        apt for apt in agendamentos 
+        if apt.psychologist_id == id_psicologo
+    ]
+    
+    is_first_appointment = len(consultas_com_psicologo) == 0
+    
+    return {
+        "is_first_appointment": is_first_appointment,
+        "discount_percentage": 30 if is_first_appointment else 0,
+        "original_price": psicologo.consultation_price or 0.0,
+        "discounted_price": (psicologo.consultation_price * 0.7) if (is_first_appointment and psicologo.consultation_price) else (psicologo.consultation_price or 0.0)
+    }
+
 @router.get("/meus-agendamentos", response_model=List[AppointmentResponse])
 def obter_meus_agendamentos(
     filtro_status: Optional[str] = None,
