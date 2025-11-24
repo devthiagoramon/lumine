@@ -2,9 +2,9 @@
 Script completo para popular o banco de dados com dados mockados para testes
 Execute após rodar as migrations do Alembic
 """
-from app.database import SessionLocal, engine
+from app.database import SessionLocal, engine, Base
 from app.models import (
-    Base, Specialty, Approach, User, Psychologist, Review, 
+    Specialty, Approach, User, Psychologist, Review, 
     Appointment, ForumPost, ForumComment, EmotionDiary, 
     Payment, PsychologistAvailability
 )
@@ -13,16 +13,16 @@ from app.auth import get_password_hash
 from datetime import datetime, timedelta
 import random
 
-# Criar tabelas
-Base.metadata.create_all(bind=engine)
+# NOTA: Execute as migrations do Alembic antes de rodar este script:
+# alembic upgrade head
 
 db = SessionLocal()
 
 try:
-    print("🌱 Iniciando seed de dados mockados...")
+    print("[*] Iniciando seed de dados mockados...")
     
     # Limpar dados existentes (exceto admin)
-    print("🧹 Limpando dados existentes...")
+    print("[*] Limpando dados existentes...")
     db.query(PsychologistAvailability).delete()
     db.query(Payment).delete()
     db.query(EmotionDiary).delete()
@@ -37,7 +37,7 @@ try:
     db.commit()
     
     # ========== ESPECIALIDADES ==========
-    print("📚 Criando especialidades...")
+    print("[*] Criando especialidades...")
     specialties_data = [
         {"name": "Ansiedade", "description": "Tratamento de transtornos de ansiedade"},
         {"name": "Depressão", "description": "Tratamento de depressão e transtornos do humor"},
@@ -57,10 +57,10 @@ try:
         db.add(specialty)
         specialties.append(specialty)
     db.commit()
-    print(f"✅ {len(specialties)} especialidades criadas")
+    print(f"[OK] {len(specialties)} especialidades criadas")
     
     # ========== ABORDAGENS ==========
-    print("🎯 Criando abordagens...")
+    print("[*] Criando abordagens...")
     approaches_data = [
         {"name": "TCC", "description": "Terapia Cognitivo-Comportamental"},
         {"name": "Psicanálise", "description": "Abordagem psicanalítica"},
@@ -78,10 +78,10 @@ try:
         db.add(approach)
         approaches.append(approach)
     db.commit()
-    print(f"✅ {len(approaches)} abordagens criadas")
+    print(f"[OK] {len(approaches)} abordagens criadas")
     
     # ========== USUÁRIOS E PSICÓLOGOS ==========
-    print("👥 Criando usuários e psicólogos...")
+    print("[*] Criando usuários e psicólogos...")
     
     # Dados mockados de psicólogos
     psychologists_data = [
@@ -242,10 +242,10 @@ try:
         psychologists.append(psychologist)
     
     db.commit()
-    print(f"✅ {len(psychologists)} psicólogos criados")
+    print(f"[OK] {len(psychologists)} psicólogos criados")
     
     # ========== USUÁRIOS CLIENTES ==========
-    print("👤 Criando usuários clientes...")
+    print("[*] Criando usuários clientes...")
     clients_data = [
         {"email": "cliente1@teste.com", "full_name": "Pedro Alves", "phone": "(11) 91234-5678"},
         {"email": "cliente2@teste.com", "full_name": "Fernanda Lima", "phone": "(21) 92345-6789"},
@@ -268,10 +268,10 @@ try:
         clients.append(user)
     
     db.commit()
-    print(f"✅ {len(clients)} clientes criados")
+    print(f"[OK] {len(clients)} clientes criados")
     
     # ========== AVALIAÇÕES ==========
-    print("⭐ Criando avaliações...")
+    print("[*] Criando avaliações...")
     review_comments = [
         "Excelente profissional, muito atenciosa e competente!",
         "Me ajudou muito com minha ansiedade. Recomendo!",
@@ -298,7 +298,7 @@ try:
             reviews_created += 1
     
     db.commit()
-    print(f"✅ {reviews_created} avaliações criadas")
+    print(f"[OK] {reviews_created} avaliações criadas")
     
     # Atualizar ratings dos psicólogos
     for psychologist in psychologists:
@@ -315,7 +315,7 @@ try:
     db.commit()
     
     # ========== AGENDAMENTOS ==========
-    print("📅 Criando agendamentos...")
+    print("[*] Criando agendamentos...")
     appointments_created = 0
     for i in range(15):
         psychologist = random.choice(psychologists)
@@ -334,10 +334,10 @@ try:
         appointments_created += 1
     
     db.commit()
-    print(f"✅ {appointments_created} agendamentos criados")
+    print(f"[OK] {appointments_created} agendamentos criados")
     
     # ========== PAGAMENTOS ==========
-    print("💳 Criando pagamentos...")
+    print("[*] Criando pagamentos...")
     appointments = db.query(Appointment).filter(Appointment.status.in_(["confirmed", "completed"])).all()
     payments_created = 0
     
@@ -358,10 +358,10 @@ try:
             payments_created += 1
     
     db.commit()
-    print(f"✅ {payments_created} pagamentos criados")
+    print(f"[OK] {payments_created} pagamentos criados")
     
     # ========== HORÁRIOS DISPONÍVEIS ==========
-    print("🕐 Criando horários disponíveis...")
+    print("[*] Criando horários disponíveis...")
     days_of_week = list(range(7))  # 0=Segunda, 6=Domingo
     time_slots = [
         ("08:00", "12:00"),
@@ -386,10 +386,10 @@ try:
             availability_created += 1
     
     db.commit()
-    print(f"✅ {availability_created} horários disponíveis criados")
+    print(f"[OK] {availability_created} horários disponíveis criados")
     
     # ========== POSTS DO FÓRUM ==========
-    print("💬 Criando posts do fórum...")
+    print("[*] Criando posts do fórum...")
     forum_posts_data = [
         {
             "title": "Como lidar com ansiedade no trabalho?",
@@ -433,10 +433,10 @@ try:
         posts_created += 1
     
     db.commit()
-    print(f"✅ {posts_created} posts do fórum criados")
+    print(f"[OK] {posts_created} posts do fórum criados")
     
     # ========== COMENTÁRIOS DO FÓRUM ==========
-    print("💭 Criando comentários do fórum...")
+    print("[*] Criando comentários do fórum...")
     posts = db.query(ForumPost).all()
     comments_created = 0
     
@@ -460,10 +460,10 @@ try:
             comments_created += 1
     
     db.commit()
-    print(f"✅ {comments_created} comentários criados")
+    print(f"[OK] {comments_created} comentários criados")
     
     # ========== DIÁRIO DE EMOÇÕES ==========
-    print("📔 Criando entradas do diário de emoções...")
+    print("[*] Criando entradas do diário de emoções...")
     emotions = ["feliz", "triste", "ansioso", "irritado", "calmo", "estressado", "motivado", "cansado"]
     
     diary_entries_created = 0
@@ -488,10 +488,10 @@ try:
             diary_entries_created += 1
     
     db.commit()
-    print(f"✅ {diary_entries_created} entradas do diário criadas")
+    print(f"[OK] {diary_entries_created} entradas do diário criadas")
     
     # ========== FAVORITOS ==========
-    print("❤️ Criando favoritos...")
+    print("[*] Criando favoritos...")
     favorites_created = 0
     for client in clients:
         num_favorites = random.randint(1, 3)
@@ -501,10 +501,10 @@ try:
             favorites_created += 1
     
     db.commit()
-    print(f"✅ {favorites_created} favoritos criados")
+    print(f"[OK] {favorites_created} favoritos criados")
     
     # ========== ADMIN ==========
-    print("👑 Verificando usuário administrador...")
+    print("[*] Verificando usuário administrador...")
     admin_email = "admin@lumine.com"
     existing_admin = db.query(User).filter(User.email == admin_email).first()
     if not existing_admin:
@@ -518,16 +518,16 @@ try:
         )
         db.add(admin_user)
         db.commit()
-        print("✅ Usuário administrador criado")
+        print("[OK] Usuário administrador criado")
         print(f"   Email: {admin_email}")
         print(f"   Senha: admin123")
     else:
-        print("ℹ️ Usuário administrador já existe")
+        print("[INFO] Usuário administrador já existe")
     
     print("\n" + "="*60)
-    print("✅ SEED DE DADOS CONCLUÍDO COM SUCESSO!")
+    print("[OK] SEED DE DADOS CONCLUÍDO COM SUCESSO!")
     print("="*60)
-    print(f"\n📊 Resumo:")
+    print(f"\n[*] Resumo:")
     print(f"   - {len(specialties)} especialidades")
     print(f"   - {len(approaches)} abordagens")
     print(f"   - {len(psychologists)} psicólogos")
@@ -540,14 +540,14 @@ try:
     print(f"   - {comments_created} comentários")
     print(f"   - {diary_entries_created} entradas do diário")
     print(f"   - {favorites_created} favoritos")
-    print(f"\n🔑 Credenciais de teste:")
+    print(f"\n[*] Credenciais de teste:")
     print(f"   Admin: admin@lumine.com / admin123")
     print(f"   Psicólogos: [email] / senha123")
     print(f"   Clientes: cliente[1-4]@teste.com / senha123")
     print("="*60)
     
 except Exception as e:
-    print(f"❌ ERRO ao criar dados mockados: {e}")
+    print(f"[ERRO] ERRO ao criar dados mockados: {e}")
     import traceback
     traceback.print_exc()
     db.rollback()
