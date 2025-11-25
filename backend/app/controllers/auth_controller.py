@@ -24,7 +24,7 @@ def registrar(usuario: UserCreate):
     
     # Criar novo usuário
     senha_hash = auth.get_password_hash(usuario.password)
-    usuario_db = User.criar(
+    usuario_created = User.criar(
         email=usuario.email,
         senha_hash=senha_hash,
         nome_completo=usuario.full_name,
@@ -33,7 +33,7 @@ def registrar(usuario: UserCreate):
         esta_ativo=True,
         eh_admin=False
     )
-    return usuario_db
+    return usuario_created
 
 @router.post("/login", response_model=Token)
 def fazer_login(

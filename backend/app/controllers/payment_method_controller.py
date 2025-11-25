@@ -56,7 +56,7 @@ def criar_metodo_pagamento(
     expiry_month, expiry_year = parse_expiry(metodo.card_expiry)
     
     # Criar método de pagamento
-    metodo_db = PaymentMethod.criar(
+    metodo_created = PaymentMethod.criar(
         user_id=usuario_atual.id,
         card_type=metodo.card_type,
         card_brand=card_brand,
@@ -67,7 +67,7 @@ def criar_metodo_pagamento(
         is_default=metodo.is_default
     )
     
-    return metodo_db
+    return metodo_created
 
 @router.get("/", response_model=List[PaymentMethodResponse])
 def listar_metodos_pagamento(

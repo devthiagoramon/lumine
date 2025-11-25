@@ -47,7 +47,7 @@ def criar_saque(
         )
     
     # Criar solicitação de saque
-    saque_db = Withdrawal.criar(
+    saque_created = Withdrawal.criar(
         psychologist_id=psicologo.id,
         amount=saque.amount,
         bank_name=saque.bank_name,
@@ -66,12 +66,12 @@ def criar_saque(
         title="Solicitação de Saque Criada",
         message=f"Sua solicitação de saque de R$ {saque.amount:.2f} foi criada e está em análise.",
         type="withdrawal",
-        related_id=saque_db.id,
+        related_id=saque_created.id,
         related_type="withdrawal",
         is_read=False
     )
     
-    return saque_db
+    return saque_created
 
 @router.get("/", response_model=List[WithdrawalResponse])
 def obter_meus_saques(

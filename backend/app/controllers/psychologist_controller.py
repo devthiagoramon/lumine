@@ -43,7 +43,7 @@ def criar_perfil_psicologo(
     
     # Criar perfil com relacionamentos
     dados_psicologo = psicologo.dict(exclude={"specialty_ids", "approach_ids"})
-    psicologo_db = Psychologist.criar_com_relacionamentos(
+    psicologo_created = Psychologist.criar_com_relacionamentos(
         user_id=usuario_atual.id,
         specialty_ids=psicologo.specialty_ids,
         approach_ids=psicologo.approach_ids,
@@ -51,9 +51,9 @@ def criar_perfil_psicologo(
     )
     
     # Recarregar com relacionamentos
-    psicologo_db = Psychologist.obter_por_id(psicologo_db.id, carregar_relacionamentos=True)
+    psicologo_created = Psychologist.obter_por_id(psicologo_created.id, carregar_relacionamentos=True)
     
-    return psicologo_db
+    return psicologo_created
 
 @router.get("/me", response_model=PsychologistResponse)
 def obter_meu_perfil(
@@ -85,16 +85,16 @@ def atualizar_meu_perfil(
     
     # Atualizar campos e relacionamentos
     dados_atualizacao = atualizacao_psicologo.dict(exclude_unset=True, exclude={"specialty_ids", "approach_ids"})
-    psicologo_db = psicologo.atualizar_com_relacionamentos(
+    psicologo_updated = psicologo.atualizar_com_relacionamentos(
         specialty_ids=atualizacao_psicologo.specialty_ids,
         approach_ids=atualizacao_psicologo.approach_ids,
         **dados_atualizacao
     )
     
     # Recarregar com relacionamentos
-    psicologo_db = Psychologist.obter_por_id(psicologo_db.id, carregar_relacionamentos=True)
+    psicologo_object = Psychologist.obter_por_id(psicologo_updated.id, carregar_relacionamentos=True)
     
-    return psicologo_db
+    return psicologo_object
 
 @router.get("/{id_psicologo}", response_model=PsychologistResponse)
 def obter_psicologo(

@@ -92,7 +92,7 @@ def criar_pagamento(
         id_transacao = None
     
     # Criar registro de pagamento
-    pagamento_db = Payment.criar(
+    pagamento_created = Payment.criar(
         appointment_id=pagamento.appointment_id,
         user_id=usuario_atual.id,
         amount=valor,
@@ -116,7 +116,7 @@ def criar_pagamento(
             title="Novo Pagamento Recebido",
             message=f"Você recebeu R$ {parte_psicologo:.2f} de uma consulta.",
             type="payment",
-            related_id=pagamento_db.id,
+            related_id=pagamento_created.id,
             related_type="payment",
             is_read=False
         )
@@ -127,12 +127,12 @@ def criar_pagamento(
             title="Pagamento Confirmado",
             message="Seu pagamento foi processado com sucesso.",
             type="payment",
-            related_id=pagamento_db.id,
+            related_id=pagamento_created.id,
             related_type="payment",
             is_read=False
         )
     
-    return pagamento_db
+    return pagamento_created
 
 @router.get("/agendamento/{id_agendamento}", response_model=PaymentResponse)
 def obter_pagamento_por_agendamento(

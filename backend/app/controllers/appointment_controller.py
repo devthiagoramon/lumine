@@ -53,7 +53,7 @@ def criar_agendamento(
             )
     
     # Criar agendamento
-    agendamento_db = Appointment.criar(
+    agendamento_created = Appointment.criar(
         psychologist_id=agendamento.psychologist_id,
         user_id=usuario_atual.id,
         appointment_date=agendamento.appointment_date,
@@ -68,15 +68,15 @@ def criar_agendamento(
         title="Novo Agendamento Solicitado",
         message=f"Você recebeu uma nova solicitação de agendamento de {usuario_atual.nome_completo}.",
         type="appointment",
-        related_id=agendamento_db.id,
+        related_id=agendamento_created.id,
         related_type="appointment",
         is_read=False
     )
     
     # Recarregar com relacionamentos
-    agendamento_db = Appointment.obter_por_id(agendamento_db.id, carregar_relacionamentos=True)
+    agendamento_created = Appointment.obter_por_id(agendamento_created.id, carregar_relacionamentos=True)
     
-    return agendamento_db
+    return agendamento_created
 
 @router.get("/verificar-primeira-consulta/{id_psicologo}")
 def verificar_primeira_consulta(

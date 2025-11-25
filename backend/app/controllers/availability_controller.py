@@ -54,7 +54,7 @@ def criar_disponibilidade(
             detail="Já existe disponibilidade para este dia. Use atualização ao invés."
         )
     
-    disponibilidade_db = PsychologistAvailability.criar(
+    disponibilidade_created = PsychologistAvailability.criar(
         psychologist_id=psicologo.id,
         day_of_week=disponibilidade.day_of_week,
         start_time=disponibilidade.start_time,
@@ -62,7 +62,7 @@ def criar_disponibilidade(
         is_available=disponibilidade.is_available if hasattr(disponibilidade, 'is_available') else True
     )
     
-    return disponibilidade_db
+    return disponibilidade_created
 
 @router.get("/", response_model=List[PsychologistAvailabilityResponse])
 def obter_minha_disponibilidade(

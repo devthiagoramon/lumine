@@ -26,7 +26,7 @@ def criar_entrada(
             detail="Intensidade deve estar entre 1 e 10"
         )
     
-    entrada_db = EmotionDiary.criar(
+    entrada_created = EmotionDiary.criar(
         user_id=usuario_atual.id,
         date=entrada.date,
         emotion=entrada.emotion,
@@ -34,7 +34,7 @@ def criar_entrada(
         notes=entrada.notes,
         tags=entrada.tags
     )
-    return entrada_db
+    return entrada_created
 
 @router.get("/", response_model=List[EmotionDiaryResponse])
 def obter_entradas(

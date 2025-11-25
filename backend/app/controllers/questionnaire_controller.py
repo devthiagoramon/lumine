@@ -45,7 +45,7 @@ def criar_questionario(
         recomendacao = "É importante buscar ajuda profissional. Um psicólogo pode oferecer o suporte necessário."
     
     # Criar questionário
-    questionario_db = Questionnaire.criar(
+    questionario_created = Questionnaire.criar(
         user_id=usuario_atual.id,
         question_1=questionario.question_1,
         question_2=questionario.question_2,
@@ -60,7 +60,7 @@ def criar_questionario(
         total_score=pontuacao_total,
         recommendation=recomendacao
     )
-    return questionario_db
+    return questionario_created
 
 @router.get("/", response_model=List[QuestionnaireResponse])
 def obter_meus_questionarios(

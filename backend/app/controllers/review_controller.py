@@ -56,7 +56,7 @@ def criar_avaliacao(
         )
     
     # Criar avaliação
-    avaliacao_db = Review.criar(
+    avaliacao_created = Review.criar(
         psychologist_id=avaliacao.psychologist_id,
         user_id=usuario_atual.id,
         rating=avaliacao.rating,
@@ -70,9 +70,9 @@ def criar_avaliacao(
     psicologo.atualizar(rating=media_rating, total_reviews=total_avaliacoes)
     
     # Recarregar com relacionamentos
-    avaliacao_db = Review.obter_por_id_com_relacionamentos(avaliacao_db.id)
+    avaliacao_object = Review.obter_por_id_com_relacionamentos(avaliacao_created.id)
     
-    return avaliacao_db
+    return avaliacao_object
 
 @router.get("/psicologo/{id_psicologo}", response_model=List[ReviewResponse])
 def obter_avaliacoes_psicologo(

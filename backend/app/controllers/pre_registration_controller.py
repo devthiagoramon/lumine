@@ -44,14 +44,14 @@ def criar_pre_cadastro(
     
     # Criar pré-cadastro
     pre_registration_data = pre_cadastro.dict(exclude={"specialty_ids", "approach_ids"})
-    db_pre_registration = PsychologistPreRegistration.criar(
+    pre_registration_created = PsychologistPreRegistration.criar(
         user_id=usuario_atual.id,
         specialty_ids=json.dumps(pre_cadastro.specialty_ids) if pre_cadastro.specialty_ids else "[]",
         approach_ids=json.dumps(pre_cadastro.approach_ids) if pre_cadastro.approach_ids else "[]",
         **pre_registration_data
     )
     
-    return db_pre_registration
+    return pre_registration_created
 
 @router.get("/my-pre-registration", response_model=PsychologistPreRegistrationResponse)
 def obter_meu_pre_cadastro(

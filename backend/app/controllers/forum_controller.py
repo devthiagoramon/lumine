@@ -21,7 +21,7 @@ def criar_post(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar post no fórum"""
-    post_db = ForumPost.criar(
+    post_objeto = ForumPost.criar(
         user_id=usuario_atual.id,
         title=post.title,
         content=post.content,
@@ -30,9 +30,9 @@ def criar_post(
     )
     
     # Recarregar com relacionamentos e contagem de comentários
-    post_db = ForumPost.obter_por_id(post_db.id)
+    post_objeto = ForumPost.obter_por_id(post_objeto.id)
     
-    return post_db
+    return post_objeto
 
 @router.get("/posts", response_model=List[ForumPostResponse])
 def listar_posts(
@@ -87,9 +87,9 @@ def atualizar_post(
     post.atualizar(**dados_atualizacao)
     
     # Recarregar com relacionamentos
-    post_db = ForumPost.obter_por_id(id_post)
+    post_objeto = ForumPost.obter_por_id(id_post)
     
-    return post_db
+    return post_objeto
 
 @router.delete("/posts/{id_post}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_post(
@@ -123,7 +123,7 @@ def criar_comentario(
             detail="Post não encontrado"
         )
     
-    comentario_db = ForumComment.criar(
+    comentario_created = ForumComment.criar(
         post_id=id_post,
         user_id=usuario_atual.id,
         content=comentario.content,
@@ -131,9 +131,9 @@ def criar_comentario(
     )
     
     # Recarregar com relacionamentos
-    comentario_db = ForumComment.obter_por_id_com_relacionamentos(comentario_db.id)
+    comentario_created = ForumComment.obter_por_id_com_relacionamentos(comentario_created.id)
     
-    return comentario_db
+    return comentario_created
 
 @router.get("/posts/{id_post}/comments", response_model=List[ForumCommentResponse])
 def obter_comentarios(
