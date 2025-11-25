@@ -11,17 +11,17 @@ class ForumPost(Base):
     __tablename__ = "forum_posts"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    title = Column(String, nullable=False)
-    content = Column(Text, nullable=False)
-    category = Column(String, default='geral')  # 'geral', 'ansiedade', 'depressao', 'relacionamentos', etc.
-    is_anonymous = Column(Boolean, default=False)
-    views = Column(Integer, default=0)
-    likes = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    titulo = Column("title", String, nullable=False)
+    conteudo = Column("content", Text, nullable=False)
+    categoria = Column("category", String, default='geral')  # 'geral', 'ansiedade', 'depressao', 'relacionamentos', etc.
+    eh_anonimo = Column("is_anonymous", Boolean, default=False)
+    visualizacoes = Column("views", Integer, default=0)
+    curtidas = Column("likes", Integer, default=0)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="forum_posts", overlaps="forum_posts")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="forum_posts", overlaps="forum_posts")
     comments = relationship("ForumComment", back_populates="post", cascade="all, delete-orphan")
     
     # Métodos de acesso ao banco
@@ -60,18 +60,18 @@ class ForumPost(Base):
             query = db.query(cls).options(joinedload(cls.user))
             
             if categoria:
-                query = query.filter(cls.category == categoria)
+                query = query.filter(cls.categoria == categoria)
             
             if busca:
                 search_term = f"%{busca}%"
                 query = query.filter(
                     or_(
-                        cls.title.ilike(search_term),
-                        cls.content.ilike(search_term)
+                        cls.titulo.ilike(search_term),
+                        cls.conteudo.ilike(search_term)
                     )
                 )
             
-            posts = query.order_by(desc(cls.created_at)).offset(
+            posts = query.order_by(desc(cls.criado_em)).offset(
                 (pagina - 1) * tamanho_pagina
             ).limit(tamanho_pagina).all()
             
@@ -123,7 +123,7 @@ class ForumPost(Base):
         try:
             post = db.query(ForumPost).filter(ForumPost.id == self.id).first()
             if post:
-                post.views += 1
+                post.visualizacoes += 1
                 db.commit()
                 db.refresh(post)
                 return post

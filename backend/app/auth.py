@@ -86,7 +86,7 @@ def authenticate_user(email: str, password: str):
     user = User.obter_por_email(email)
     if not user:
         return False
-    if not verify_password(password, user.hashed_password):
+    if not verify_password(password, user.senha_hash):
         return False
     return user
 
@@ -113,14 +113,14 @@ async def get_current_user(
 async def get_current_active_user(
     current_user: User = Depends(get_current_user)
 ):
-    if not current_user.is_active:
+    if not current_user.esta_ativo:
         raise HTTPException(status_code=400, detail="Inactive user")
     return current_user
 
 async def get_current_admin(
     current_user: User = Depends(get_current_active_user)
 ):
-    if not current_user.is_admin:
+    if not current_user.eh_admin:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Not enough permissions. Admin access required."

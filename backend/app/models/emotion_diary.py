@@ -11,16 +11,16 @@ class EmotionDiary(Base):
     __tablename__ = "emotion_diaries"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    date = Column(DateTime(timezone=True), nullable=False)
-    emotion = Column(String, nullable=False)  # 'feliz', 'triste', 'ansioso', 'irritado', 'calmo', etc.
-    intensity = Column(Integer, nullable=False)  # 1-10
-    notes = Column(Text)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    data = Column("date", DateTime(timezone=True), nullable=False)
+    emocao = Column("emotion", String, nullable=False)  # 'feliz', 'triste', 'ansioso', 'irritado', 'calmo', etc.
+    intensidade = Column("intensity", Integer, nullable=False)  # 1-10
+    notas = Column("notes", Text)
     tags = Column(String)  # Tags separadas por vírgula
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="emotion_diaries", overlaps="emotion_diaries")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="emotion_diaries", overlaps="emotion_diaries")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -30,7 +30,7 @@ class EmotionDiary(Base):
         try:
             return db.query(cls).filter(
                 cls.id == id_entrada,
-                cls.user_id == id_usuario
+                cls.id_usuario == id_usuario
             ).first()
         finally:
             db.close()
@@ -46,16 +46,16 @@ class EmotionDiary(Base):
         """Listar entradas do diário de um usuário"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.user_id == id_usuario)
+            query = db.query(cls).filter(cls.id_usuario == id_usuario)
             
             if data_inicio:
-                query = query.filter(cls.date >= data_inicio)
+                query = query.filter(cls.data >= data_inicio)
             if data_fim:
-                query = query.filter(cls.date <= data_fim)
+                query = query.filter(cls.data <= data_fim)
             if emocao:
-                query = query.filter(cls.emotion == emocao)
+                query = query.filter(cls.emocao == emocao)
             
-            return query.order_by(cls.date.desc()).all()
+            return query.order_by(cls.data.desc()).all()
         finally:
             db.close()
     
@@ -69,33 +69,33 @@ class EmotionDiary(Base):
         """Obter estatísticas do diário"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.user_id == id_usuario)
+            query = db.query(cls).filter(cls.id_usuario == id_usuario)
             
             if data_inicio:
-                query = query.filter(cls.date >= data_inicio)
+                query = query.filter(cls.data >= data_inicio)
             if data_fim:
-                query = query.filter(cls.date <= data_fim)
+                query = query.filter(cls.data <= data_fim)
             
             # Estatísticas por emoção
             emotion_stats_query = db.query(
-                cls.emotion,
+                cls.emocao,
                 func.count(cls.id).label('count'),
-                func.avg(cls.intensity).label('avg_intensity')
-            ).filter(cls.user_id == id_usuario)
+                func.avg(cls.intensidade).label('avg_intensity')
+            ).filter(cls.id_usuario == id_usuario)
             
             if data_inicio:
-                emotion_stats_query = emotion_stats_query.filter(cls.date >= data_inicio)
+                emotion_stats_query = emotion_stats_query.filter(cls.data >= data_inicio)
             if data_fim:
-                emotion_stats_query = emotion_stats_query.filter(cls.date <= data_fim)
+                emotion_stats_query = emotion_stats_query.filter(cls.data <= data_fim)
             
-            emotion_stats = emotion_stats_query.group_by(cls.emotion).all()
+            emotion_stats = emotion_stats_query.group_by(cls.emocao).all()
             
             # Média geral de intensidade
-            avg_intensity_query = db.query(func.avg(cls.intensity)).filter(cls.user_id == id_usuario)
+            avg_intensity_query = db.query(func.avg(cls.intensidade)).filter(cls.id_usuario == id_usuario)
             if data_inicio:
-                avg_intensity_query = avg_intensity_query.filter(cls.date >= data_inicio)
+                avg_intensity_query = avg_intensity_query.filter(cls.data >= data_inicio)
             if data_fim:
-                avg_intensity_query = avg_intensity_query.filter(cls.date <= data_fim)
+                avg_intensity_query = avg_intensity_query.filter(cls.data <= data_fim)
             
             avg_intensity = avg_intensity_query.scalar()
             total_entries = query.count()
@@ -105,7 +105,7 @@ class EmotionDiary(Base):
                 "average_intensity": float(avg_intensity) if avg_intensity else 0,
                 "emotion_stats": [
                     {
-                        "emotion": stat.emotion,
+                        "emotion": stat.emocao,
                         "count": stat.count,
                         "average_intensity": float(stat.avg_intensity) if stat.avg_intensity else 0
                     }

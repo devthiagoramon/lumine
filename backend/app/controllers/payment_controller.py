@@ -207,7 +207,7 @@ def obter_historico_financeiro(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter histórico financeiro (para psicólogos)"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar histórico financeiro"
@@ -237,7 +237,7 @@ def obter_saldo(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saldo disponível (para psicólogos)"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar saldo"

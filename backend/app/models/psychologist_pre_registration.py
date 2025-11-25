@@ -11,25 +11,25 @@ class PsychologistPreRegistration(Base):
     __tablename__ = "psychologist_pre_registrations"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
     crp = Column(String, unique=True, nullable=False)
-    bio = Column(Text)
-    experience_years = Column(Integer, default=0)
-    consultation_price = Column(Float)
-    online_consultation = Column(Boolean, default=True)
-    in_person_consultation = Column(Boolean, default=False)
-    address = Column(String)
-    city = Column(String)
-    state = Column(String)
-    zip_code = Column(String)
-    specialty_ids = Column(String)  # JSON array de IDs
-    approach_ids = Column(String)  # JSON array de IDs
+    biografia = Column("bio", Text)
+    anos_experiencia = Column("experience_years", Integer, default=0)
+    preco_consulta = Column("consultation_price", Float)
+    consulta_online = Column("online_consultation", Boolean, default=True)
+    consulta_presencial = Column("in_person_consultation", Boolean, default=False)
+    endereco = Column("address", String)
+    cidade = Column("city", String)
+    estado = Column("state", String)
+    cep = Column("zip_code", String)
+    ids_especialidades = Column("specialty_ids", String)  # JSON array de IDs
+    ids_abordagens = Column("approach_ids", String)  # JSON array de IDs
     status = Column(String, default='pending')  # 'pending', 'approved', 'rejected'
-    rejection_reason = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    motivo_recusa = Column("rejection_reason", Text)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="pre_registrations", overlaps="pre_registrations")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="pre_registrations", overlaps="pre_registrations")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -47,8 +47,8 @@ class PsychologistPreRegistration(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.user_id == user_id
-            ).order_by(cls.created_at.desc()).first()
+                cls.id_usuario == user_id
+            ).order_by(cls.criado_em.desc()).first()
         finally:
             db.close()
     
@@ -58,9 +58,9 @@ class PsychologistPreRegistration(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.user_id == user_id,
+                cls.id_usuario == user_id,
                 cls.status == 'pending'
-            ).order_by(cls.created_at.desc()).first()
+            ).order_by(cls.criado_em.desc()).first()
         finally:
             db.close()
     
@@ -80,7 +80,7 @@ class PsychologistPreRegistration(Base):
         try:
             return db.query(cls).filter(
                 cls.status == 'pending'
-            ).order_by(cls.created_at.desc()).all()
+            ).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     

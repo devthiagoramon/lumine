@@ -11,23 +11,23 @@ class Questionnaire(Base):
     __tablename__ = "questionnaires"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    question_1 = Column(Integer)  # Resposta 1-5
-    question_2 = Column(Integer)
-    question_3 = Column(Integer)
-    question_4 = Column(Integer)
-    question_5 = Column(Integer)
-    question_6 = Column(Integer)
-    question_7 = Column(Integer)
-    question_8 = Column(Integer)
-    question_9 = Column(Integer)
-    question_10 = Column(Integer)
-    total_score = Column(Integer)  # Soma das respostas
-    recommendation = Column(Text)  # Recomendação baseada no score
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    pergunta_1 = Column("question_1", Integer)  # Resposta 1-5
+    pergunta_2 = Column("question_2", Integer)
+    pergunta_3 = Column("question_3", Integer)
+    pergunta_4 = Column("question_4", Integer)
+    pergunta_5 = Column("question_5", Integer)
+    pergunta_6 = Column("question_6", Integer)
+    pergunta_7 = Column("question_7", Integer)
+    pergunta_8 = Column("question_8", Integer)
+    pergunta_9 = Column("question_9", Integer)
+    pergunta_10 = Column("question_10", Integer)
+    pontuacao_total = Column("total_score", Integer)  # Soma das respostas
+    recomendacao = Column("recommendation", Text)  # Recomendação baseada no score
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id], back_populates="questionnaires", overlaps="questionnaires")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="questionnaires", overlaps="questionnaires")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -44,7 +44,7 @@ class Questionnaire(Base):
         """Listar questionários de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     
@@ -53,7 +53,7 @@ class Questionnaire(Base):
         """Obter questionário mais recente de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).first()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).order_by(cls.criado_em.desc()).first()
         finally:
             db.close()
     

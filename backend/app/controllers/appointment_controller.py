@@ -66,7 +66,7 @@ def criar_agendamento(
     Notification.criar(
         user_id=psicologo.user_id,
         title="Novo Agendamento Solicitado",
-        message=f"Você recebeu uma nova solicitação de agendamento de {usuario_atual.full_name}.",
+        message=f"Você recebeu uma nova solicitação de agendamento de {usuario_atual.nome_completo}.",
         type="appointment",
         related_id=agendamento_db.id,
         related_type="appointment",
@@ -123,7 +123,7 @@ def obter_agendamentos_psicologo(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter agendamentos do psicólogo"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar seus agendamentos"
@@ -227,7 +227,7 @@ def confirmar_agendamento(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Confirmar agendamento (apenas psicólogo)"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem confirmar agendamentos"
@@ -274,7 +274,7 @@ def recusar_agendamento(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Recusar agendamento (apenas psicólogo)"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem recusar agendamentos"

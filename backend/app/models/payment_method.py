@@ -11,18 +11,18 @@ class PaymentMethod(Base):
     __tablename__ = "payment_methods"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    card_type = Column(String, nullable=False)  # 'credit_card', 'debit_card'
-    card_brand = Column(String)  # 'visa', 'mastercard', 'amex', 'elo', etc.
-    last_four_digits = Column(String(4), nullable=False)  # Últimos 4 dígitos
-    card_holder = Column(String, nullable=False)  # Nome do portador
-    expiry_month = Column(String(2), nullable=False)  # MM
-    expiry_year = Column(String(4), nullable=False)  # YYYY
-    is_default = Column(Boolean, default=False)  # Método padrão
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    tipo_cartao = Column("card_type", String, nullable=False)  # 'credit_card', 'debit_card'
+    bandeira = Column("card_brand", String)  # 'visa', 'mastercard', 'amex', 'elo', etc.
+    ultimos_quatro_digitos = Column("last_four_digits", String(4), nullable=False)  # Últimos 4 dígitos
+    portador = Column("card_holder", String, nullable=False)  # Nome do portador
+    mes_validade = Column("expiry_month", String(2), nullable=False)  # MM
+    ano_validade = Column("expiry_year", String(4), nullable=False)  # YYYY
+    eh_padrao = Column("is_default", Boolean, default=False)  # Método padrão
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    user = relationship("User", foreign_keys=[user_id])
+    user = relationship("User", foreign_keys=[id_usuario])
     
     # Métodos de acesso ao banco
     @classmethod
@@ -35,24 +35,24 @@ class PaymentMethod(Base):
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, user_id: int) -> List["PaymentMethod"]:
+    def listar_por_usuario(cls, id_usuario: int) -> List["PaymentMethod"]:
         """Listar métodos de pagamento de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == user_id).order_by(
-                cls.is_default.desc(), cls.created_at.desc()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).order_by(
+                cls.eh_padrao.desc(), cls.criado_em.desc()
             ).all()
         finally:
             db.close()
     
     @classmethod
-    def obter_padrao(cls, user_id: int) -> Optional["PaymentMethod"]:
+    def obter_padrao(cls, id_usuario: int) -> Optional["PaymentMethod"]:
         """Obter método de pagamento padrão do usuário"""
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.user_id == user_id,
-                cls.is_default == True
+                cls.id_usuario == id_usuario,
+                cls.eh_padrao == True
             ).first()
         finally:
             db.close()
@@ -63,8 +63,10 @@ class PaymentMethod(Base):
         db = get_db_session()
         try:
             # Se este for marcado como padrão, remover padrão dos outros
-            if kwargs.get('is_default', False):
-                cls.remover_padrao(kwargs['user_id'])
+            if kwargs.get('eh_padrao', False) or kwargs.get('is_default', False):
+                id_user = kwargs.get('id_usuario') or kwargs.get('user_id')
+                if id_user:
+                    cls.remover_padrao(id_user)
             
             metodo = cls(**kwargs)
             db.add(metodo)
@@ -75,14 +77,14 @@ class PaymentMethod(Base):
             db.close()
     
     @classmethod
-    def remover_padrao(cls, user_id: int) -> None:
+    def remover_padrao(cls, id_usuario: int) -> None:
         """Remover flag de padrão de todos os métodos do usuário"""
         db = get_db_session()
         try:
             db.query(cls).filter(
-                cls.user_id == user_id,
-                cls.is_default == True
-            ).update({"is_default": False})
+                cls.id_usuario == id_usuario,
+                cls.eh_padrao == True
+            ).update({"eh_padrao": False})
             db.commit()
         finally:
             db.close()
@@ -96,8 +98,8 @@ class PaymentMethod(Base):
                 raise ValueError("Método de pagamento não encontrado")
             
             # Se está sendo marcado como padrão, remover padrão dos outros
-            if kwargs.get('is_default', False) and not metodo.is_default:
-                PaymentMethod.remover_padrao(metodo.user_id)
+            if kwargs.get('eh_padrao', False) and not metodo.eh_padrao:
+                PaymentMethod.remover_padrao(metodo.id_usuario)
             
             for key, value in kwargs.items():
                 if hasattr(metodo, key):

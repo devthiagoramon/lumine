@@ -19,7 +19,7 @@ def criar_perfil_psicologo(
 ):
     """Criar perfil de psicólogo"""
     # Verificar se usuário é psicólogo
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem criar perfis"

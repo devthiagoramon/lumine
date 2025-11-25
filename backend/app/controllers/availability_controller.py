@@ -22,7 +22,7 @@ def criar_disponibilidade(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar horário de disponibilidade"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Only psychologists can create availability"
@@ -69,7 +69,7 @@ def obter_minha_disponibilidade(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter horários de disponibilidade do psicólogo logado"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar disponibilidade"
@@ -111,7 +111,7 @@ def atualizar_disponibilidade(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar horário de disponibilidade"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem atualizar disponibilidade"
@@ -144,7 +144,7 @@ def deletar_disponibilidade(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Deletar horário de disponibilidade"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem deletar disponibilidade"

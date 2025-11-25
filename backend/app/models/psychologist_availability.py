@@ -11,15 +11,15 @@ class PsychologistAvailability(Base):
     __tablename__ = "psychologist_availability"
     
     id = Column(Integer, primary_key=True, index=True)
-    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
-    day_of_week = Column(Integer, nullable=False)  # 0=Segunda, 1=Terça, ..., 6=Domingo
-    start_time = Column(String, nullable=False)  # Formato HH:MM
-    end_time = Column(String, nullable=False)  # Formato HH:MM
-    is_available = Column(Boolean, default=True)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id_psicologo = Column("psychologist_id", Integer, ForeignKey("psychologists.id"), nullable=False)
+    dia_da_semana = Column("day_of_week", Integer, nullable=False)  # 0=Segunda, 1=Terça, ..., 6=Domingo
+    horario_inicio = Column("start_time", String, nullable=False)  # Formato HH:MM
+    horario_fim = Column("end_time", String, nullable=False)  # Formato HH:MM
+    esta_disponivel = Column("is_available", Boolean, default=True)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id], back_populates="availability", overlaps="availability")
+    psychologist = relationship("Psychologist", foreign_keys=[id_psicologo], back_populates="availability", overlaps="availability")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -29,7 +29,7 @@ class PsychologistAvailability(Base):
         try:
             query = db.query(cls).filter(cls.id == id_disponibilidade)
             if id_psicologo:
-                query = query.filter(cls.psychologist_id == id_psicologo)
+                query = query.filter(cls.id_psicologo == id_psicologo)
             return query.first()
         finally:
             db.close()
@@ -39,10 +39,10 @@ class PsychologistAvailability(Base):
         """Listar disponibilidades de um psicólogo"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.psychologist_id == id_psicologo)
+            query = db.query(cls).filter(cls.id_psicologo == id_psicologo)
             if apenas_disponiveis:
-                query = query.filter(cls.is_available == True)
-            return query.order_by(cls.day_of_week).all()
+                query = query.filter(cls.esta_disponivel == True)
+            return query.order_by(cls.dia_da_semana).all()
         finally:
             db.close()
     
@@ -52,8 +52,8 @@ class PsychologistAvailability(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == id_psicologo,
-                cls.day_of_week == dia_da_semana
+                cls.id_psicologo == id_psicologo,
+                cls.dia_da_semana == dia_da_semana
             ).first()
         finally:
             db.close()

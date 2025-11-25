@@ -11,19 +11,19 @@ class Withdrawal(Base):
     __tablename__ = "withdrawals"
     
     id = Column(Integer, primary_key=True, index=True)
-    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
-    amount = Column(Float, nullable=False)
-    bank_name = Column(String, nullable=False)
-    bank_account = Column(String, nullable=False)
-    bank_agency = Column(String, nullable=False)
-    account_type = Column(String, nullable=False)  # 'checking', 'savings'
+    id_psicologo = Column("psychologist_id", Integer, ForeignKey("psychologists.id"), nullable=False)
+    valor = Column("amount", Float, nullable=False)
+    nome_banco = Column("bank_name", String, nullable=False)
+    conta_bancaria = Column("bank_account", String, nullable=False)
+    agencia = Column("bank_agency", String, nullable=False)
+    tipo_conta = Column("account_type", String, nullable=False)  # 'checking', 'savings'
     status = Column(String, default='pending')  # 'pending', 'processing', 'completed', 'rejected'
-    rejection_reason = Column(Text)
-    processed_at = Column(DateTime(timezone=True))
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    motivo_recusa = Column("rejection_reason", Text)
+    processado_em = Column("processed_at", DateTime(timezone=True))
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id], back_populates="withdrawals", overlaps="withdrawals")
+    psychologist = relationship("Psychologist", foreign_keys=[id_psicologo], back_populates="withdrawals", overlaps="withdrawals")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -33,7 +33,7 @@ class Withdrawal(Base):
         try:
             query = db.query(cls).filter(cls.id == id_saque)
             if id_psicologo:
-                query = query.filter(cls.psychologist_id == id_psicologo)
+                query = query.filter(cls.id_psicologo == id_psicologo)
             return query.first()
         finally:
             db.close()
@@ -44,8 +44,8 @@ class Withdrawal(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == id_psicologo
-            ).order_by(cls.created_at.desc()).all()
+                cls.id_psicologo == id_psicologo
+            ).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     

@@ -11,16 +11,16 @@ class ForumComment(Base):
     __tablename__ = "forum_comments"
     
     id = Column(Integer, primary_key=True, index=True)
-    post_id = Column(Integer, ForeignKey("forum_posts.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    content = Column(Text, nullable=False)
-    is_anonymous = Column(Boolean, default=False)
-    likes = Column(Integer, default=0)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    id_post = Column("post_id", Integer, ForeignKey("forum_posts.id"), nullable=False)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    conteudo = Column("content", Text, nullable=False)
+    eh_anonimo = Column("is_anonymous", Boolean, default=False)
+    curtidas = Column("likes", Integer, default=0)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
     post = relationship("ForumPost", back_populates="comments")
-    user = relationship("User", foreign_keys=[user_id], back_populates="forum_comments", overlaps="forum_comments")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="forum_comments", overlaps="forum_comments")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -30,7 +30,7 @@ class ForumComment(Base):
         try:
             return db.query(cls).options(
                 joinedload(cls.user)
-            ).filter(cls.post_id == id_post).order_by(cls.created_at.asc()).all()
+            ).filter(cls.id_post == id_post).order_by(cls.criado_em.asc()).all()
         finally:
             db.close()
     

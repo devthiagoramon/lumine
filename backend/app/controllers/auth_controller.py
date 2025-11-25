@@ -26,12 +26,12 @@ def registrar(usuario: UserCreate):
     senha_hash = auth.get_password_hash(usuario.password)
     usuario_db = User.criar(
         email=usuario.email,
-        hashed_password=senha_hash,
-        full_name=usuario.full_name,
-        phone=usuario.phone,
-        is_psychologist=usuario.is_psychologist,
-        is_active=True,
-        is_admin=False
+        senha_hash=senha_hash,
+        nome_completo=usuario.full_name,
+        telefone=usuario.phone,
+        eh_psicologo=usuario.is_psychologist,
+        esta_ativo=True,
+        eh_admin=False
     )
     return usuario_db
 

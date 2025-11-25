@@ -12,23 +12,23 @@ class Psychologist(Base):
     __tablename__ = "psychologists"
     
     id = Column(Integer, primary_key=True, index=True)
-    user_id = Column(Integer, ForeignKey("users.id"), unique=True, nullable=False)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), unique=True, nullable=False)
     crp = Column(String, unique=True, nullable=False)  # Conselho Regional de Psicologia
-    bio = Column(Text)
-    experience_years = Column(Integer, default=0)
-    consultation_price = Column(Float)
-    online_consultation = Column(Boolean, default=True)
-    in_person_consultation = Column(Boolean, default=False)
-    address = Column(String)
-    city = Column(String)
-    state = Column(String)
-    zip_code = Column(String)
-    profile_picture = Column(String)
-    rating = Column(Float, default=0.0)
-    total_reviews = Column(Integer, default=0)
-    is_verified = Column(Boolean, default=False)
-    balance = Column(Float, default=0.0)  # Saldo disponível para saque
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    biografia = Column("bio", Text)
+    anos_experiencia = Column("experience_years", Integer, default=0)
+    preco_consulta = Column("consultation_price", Float)
+    consulta_online = Column("online_consultation", Boolean, default=True)
+    consulta_presencial = Column("in_person_consultation", Boolean, default=False)
+    endereco = Column("address", String)
+    cidade = Column("city", String)
+    estado = Column("state", String)
+    cep = Column("zip_code", String)
+    foto_perfil = Column("profile_picture", String)
+    avaliacao = Column("rating", Float, default=0.0)
+    total_avaliacoes = Column("total_reviews", Integer, default=0)
+    esta_verificado = Column("is_verified", Boolean, default=False)
+    saldo = Column("balance", Float, default=0.0)  # Saldo disponível para saque
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
     
     # Relacionamentos
     user = relationship("User", back_populates="psychologist_profile")
@@ -61,7 +61,7 @@ class Psychologist(Base):
         """Obter psicólogo por id_usuario"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == id_usuario).first()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).first()
         finally:
             db.close()
     
@@ -83,7 +83,7 @@ class Psychologist(Base):
                 joinedload(cls.user),
                 joinedload(cls.specialties),
                 joinedload(cls.approaches)
-            ).filter(cls.is_verified == True).offset(pular).limit(limite).all()
+            ).filter(cls.esta_verificado == True).offset(pular).limit(limite).all()
         finally:
             db.close()
     
@@ -96,7 +96,7 @@ class Psychologist(Base):
                 joinedload(cls.user),
                 joinedload(cls.specialties),
                 joinedload(cls.approaches)
-            ).filter(cls.is_verified == False).all()
+            ).filter(cls.esta_verificado == False).all()
         finally:
             db.close()
     
@@ -234,7 +234,7 @@ class Psychologist(Base):
         try:
             # Debug: Verificar quantos psicólogos existem no total
             total_all = db.query(cls).count()
-            total_verified = db.query(cls).filter(cls.is_verified == True).count()
+            total_verified = db.query(cls).filter(cls.esta_verificado == True).count()
             total_with_user = db.query(cls).join(User).count()
             total_with_left_join = db.query(cls).outerjoin(User).count()
             print(f"🔍 DEBUG busca_com_filtros: Total={total_all}, Verificados={total_verified}, Com User={total_with_user}, Com Left Join={total_with_left_join}")
@@ -250,19 +250,19 @@ class Psychologist(Base):
                 search_term = f"%{consulta}%"
                 q = q.filter(
                     or_(
-                        User.full_name.ilike(search_term),
-                        cls.bio.ilike(search_term),
+                        User.nome_completo.ilike(search_term),
+                        cls.biografia.ilike(search_term),
                         cls.crp.ilike(search_term)
                     )
                 )
             
             # Filtro por cidade
             if cidade:
-                q = q.filter(cls.city.ilike(f"%{cidade}%"))
+                q = q.filter(cls.cidade.ilike(f"%{cidade}%"))
             
             # Filtro por estado
             if estado:
-                q = q.filter(cls.state.ilike(f"%{estado}%"))
+                q = q.filter(cls.estado.ilike(f"%{estado}%"))
             
             # Filtro por especialidades
             if ids_especialidades:
@@ -284,27 +284,27 @@ class Psychologist(Base):
             
             # Filtro por tipo de consulta
             if consulta_online is not None:
-                q = q.filter(cls.online_consultation == consulta_online)
+                q = q.filter(cls.consulta_online == consulta_online)
             
             if consulta_presencial is not None:
-                q = q.filter(cls.in_person_consultation == consulta_presencial)
+                q = q.filter(cls.consulta_presencial == consulta_presencial)
             
             # Filtro por rating mínimo
             if avaliacao_minima is not None:
-                q = q.filter(cls.rating >= avaliacao_minima)
+                q = q.filter(cls.avaliacao >= avaliacao_minima)
             
             # Filtro por preço máximo
             if preco_maximo is not None:
                 q = q.filter(
                     or_(
-                        cls.consultation_price <= preco_maximo,
-                        cls.consultation_price.is_(None)
+                        cls.preco_consulta <= preco_maximo,
+                        cls.preco_consulta.is_(None)
                     )
                 )
             
             # Filtro por experiência mínima
             if experiencia_minima is not None:
-                q = q.filter(cls.experience_years >= experiencia_minima)
+                q = q.filter(cls.anos_experiencia >= experiencia_minima)
             
             # Contar total (usar distinct se necessário)
             if ids_especialidades or ids_abordagens:
@@ -321,15 +321,15 @@ class Psychologist(Base):
                 joinedload(cls.specialties),
                 joinedload(cls.approaches)
             ).order_by(
-                cls.rating.desc(),
-                cls.total_reviews.desc()
+                cls.avaliacao.desc(),
+                cls.total_avaliacoes.desc()
             ).offset(skip).limit(tamanho_pagina).all()
             
             print(f"🔍 DEBUG: Psicólogos retornados={len(psychologists)}")
             if psychologists:
-                print(f"🔍 DEBUG: Primeiro psicólogo: id={psychologists[0].id}, user_id={psychologists[0].user_id}, is_verified={psychologists[0].is_verified}")
+                print(f"🔍 DEBUG: Primeiro psicólogo: id={psychologists[0].id}, id_usuario={psychologists[0].id_usuario}, esta_verificado={psychologists[0].esta_verificado}")
                 if psychologists[0].user:
-                    print(f"🔍 DEBUG: User do primeiro: id={psychologists[0].user.id}, name={psychologists[0].user.full_name}")
+                    print(f"🔍 DEBUG: User do primeiro: id={psychologists[0].user.id}, name={psychologists[0].user.nome_completo}")
                 else:
                     print(f"⚠️ DEBUG: Primeiro psicólogo não tem user associado!")
             
@@ -360,14 +360,14 @@ class Psychologist(Base):
                 joinedload(cls.user),
                 joinedload(cls.specialties),
                 joinedload(cls.approaches)
-            ).filter(cls.is_verified == True)
+            ).filter(cls.esta_verificado == True)
             
             # Filtros
             if cidade:
-                query = query.filter(cls.city.ilike(f"%{cidade}%"))
+                query = query.filter(cls.cidade.ilike(f"%{cidade}%"))
             
             if estado:
-                query = query.filter(cls.state.ilike(f"%{estado}%"))
+                query = query.filter(cls.estado.ilike(f"%{estado}%"))
             
             if id_especialidade:
                 query = query.join(cls.specialties).filter(

@@ -18,7 +18,7 @@ def criar_saque(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Solicitar saque"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem solicitar saques"
@@ -78,7 +78,7 @@ def obter_meus_saques(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter meus saques"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar saques"
@@ -102,7 +102,7 @@ def obter_saque(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter saque específico"""
-    if not usuario_atual.is_psychologist:
+    if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
             detail="Apenas psicólogos podem visualizar saques"

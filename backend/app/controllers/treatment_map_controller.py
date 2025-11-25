@@ -48,7 +48,7 @@ def obter_mapa_tratamento(
         
         points.append(TreatmentMapPoint(
             psychologist_id=psych.id,
-            name=psych.user.full_name,
+            name=psych.user.nome_completo,
             city=psych.city or "",
             state=psych.state or "",
             specialty=specialty,

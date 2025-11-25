@@ -11,8 +11,8 @@ class Specialty(Base):
     __tablename__ = "specialties"
     
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, unique=True, nullable=False)
-    description = Column(Text)
+    nome = Column("name", String, unique=True, nullable=False)
+    descricao = Column("description", Text)
     
     psychologists = relationship("Psychologist", secondary=psychologist_specialties, back_populates="specialties")
     

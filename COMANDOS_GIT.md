@@ -34,3 +34,4 @@ git push origin master
 - ✅ Controllers traduzidos (variáveis e parâmetros)
 - ✅ Schemas mantidos em inglês (compatibilidade com frontend)
 
+

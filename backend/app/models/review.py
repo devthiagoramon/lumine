@@ -10,14 +10,14 @@ class Review(Base):
     __tablename__ = "reviews"
     
     id = Column(Integer, primary_key=True, index=True)
-    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    rating = Column(Integer, nullable=False)  # 1-5
-    comment = Column(Text)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    id_psicologo = Column("psychologist_id", Integer, ForeignKey("psychologists.id"), nullable=False)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    avaliacao = Column("rating", Integer, nullable=False)  # 1-5
+    comentario = Column("comment", Text)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
     
     psychologist = relationship("Psychologist", back_populates="reviews")
-    user = relationship("User", foreign_keys=[user_id], back_populates="reviews", overlaps="reviews")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="reviews", overlaps="reviews")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -34,7 +34,7 @@ class Review(Base):
         """Listar avaliações de um psicólogo"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.psychologist_id == id_psicologo).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.id_psicologo == id_psicologo).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     
@@ -43,7 +43,7 @@ class Review(Base):
         """Listar avaliações de um usuário"""
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.user_id == id_usuario).order_by(cls.created_at.desc()).all()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     
@@ -53,8 +53,8 @@ class Review(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == id_psicologo,
-                cls.user_id == id_usuario
+                cls.id_psicologo == id_psicologo,
+                cls.id_usuario == id_usuario
             ).first()
         finally:
             db.close()
@@ -64,8 +64,8 @@ class Review(Base):
         """Calcular rating médio de um psicólogo"""
         db = get_db_session()
         try:
-            resultado = db.query(func.avg(cls.rating)).filter(
-                cls.psychologist_id == id_psicologo
+            resultado = db.query(func.avg(cls.avaliacao)).filter(
+                cls.id_psicologo == id_psicologo
             ).scalar()
             return float(resultado) if resultado else 0.0
         finally:
@@ -77,7 +77,7 @@ class Review(Base):
         db = get_db_session()
         try:
             return db.query(func.count(cls.id)).filter(
-                cls.psychologist_id == id_psicologo
+                cls.id_psicologo == id_psicologo
             ).scalar()
         finally:
             db.close()

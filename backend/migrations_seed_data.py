@@ -8,6 +8,7 @@ from app.models import (
     Appointment, ForumPost, ForumComment, EmotionDiary, 
     Payment, PsychologistAvailability
 )
+from app.models.association_tables import favorites
 from sqlalchemy import func
 from app.auth import get_password_hash
 from datetime import datetime, timedelta
@@ -23,6 +24,8 @@ try:
     
     # Limpar dados existentes (exceto admin)
     print("[*] Limpando dados existentes...")
+    # Limpar favoritos primeiro (tabela de associação)
+    db.execute(favorites.delete())
     db.query(PsychologistAvailability).delete()
     db.query(Payment).delete()
     db.query(EmotionDiary).delete()
@@ -493,12 +496,16 @@ try:
     # ========== FAVORITOS ==========
     print("[*] Criando favoritos...")
     favorites_created = 0
+    # Recarregar clientes na sessão para garantir que os relacionamentos estejam limpos
     for client in clients:
+        db.refresh(client)
         num_favorites = random.randint(1, 3)
         favorite_psychologists = random.sample(psychologists, min(num_favorites, len(psychologists)))
         for psychologist in favorite_psychologists:
-            client.favorite_psychologists.append(psychologist)
-            favorites_created += 1
+            # Verificar se o favorito já existe antes de adicionar (evita duplicatas)
+            if psychologist not in client.favorite_psychologists:
+                client.favorite_psychologists.append(psychologist)
+                favorites_created += 1
     
     db.commit()
     print(f"[OK] {favorites_created} favoritos criados")

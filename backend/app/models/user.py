@@ -13,13 +13,13 @@ class User(Base):
     
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True, nullable=False)
-    hashed_password = Column(String, nullable=False)
-    full_name = Column(String, nullable=False)
-    phone = Column(String)
-    is_active = Column(Boolean, default=True)
-    is_psychologist = Column(Boolean, default=False)
-    is_admin = Column(Boolean, default=False)
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
+    senha_hash = Column("hashed_password", String, nullable=False)
+    nome_completo = Column("full_name", String, nullable=False)
+    telefone = Column("phone", String)
+    esta_ativo = Column("is_active", Boolean, default=True)
+    eh_psicologo = Column("is_psychologist", Boolean, default=False)
+    eh_admin = Column("is_admin", Boolean, default=False)
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
     
     # Relacionamentos
     psychologist_profile = relationship("Psychologist", back_populates="user", uselist=False)
@@ -115,6 +115,54 @@ class User(Base):
                 joinedload(User.favorite_psychologists).joinedload(Psychologist.specialties),
                 joinedload(User.favorite_psychologists).joinedload(Psychologist.approaches)
             ).filter(User.id == self.id).first()
+        finally:
+            db.close()
+    
+    def adicionar_favorito(self, id_psicologo: int) -> None:
+        """Adicionar psicólogo aos favoritos"""
+        from app.models.psychologist import Psychologist
+        db = get_db_session()
+        try:
+            usuario_db = db.query(User).options(
+                joinedload(User.favorite_psychologists)
+            ).filter(User.id == self.id).first()
+            
+            if not usuario_db:
+                raise ValueError("Usuário não encontrado")
+            
+            psicologo = db.query(Psychologist).filter(Psychologist.id == id_psicologo).first()
+            if not psicologo:
+                raise ValueError("Psicólogo não encontrado")
+            
+            if psicologo in usuario_db.favorite_psychologists:
+                raise ValueError("Psicólogo já está nos favoritos")
+            
+            usuario_db.favorite_psychologists.append(psicologo)
+            db.commit()
+        finally:
+            db.close()
+    
+    def remover_favorito(self, id_psicologo: int) -> None:
+        """Remover psicólogo dos favoritos"""
+        from app.models.psychologist import Psychologist
+        db = get_db_session()
+        try:
+            usuario_db = db.query(User).options(
+                joinedload(User.favorite_psychologists)
+            ).filter(User.id == self.id).first()
+            
+            if not usuario_db:
+                raise ValueError("Usuário não encontrado")
+            
+            psicologo = db.query(Psychologist).filter(Psychologist.id == id_psicologo).first()
+            if not psicologo:
+                raise ValueError("Psicólogo não encontrado")
+            
+            if psicologo not in usuario_db.favorite_psychologists:
+                raise ValueError("Psicólogo não encontrado nos favoritos")
+            
+            usuario_db.favorite_psychologists.remove(psicologo)
+            db.commit()
         finally:
             db.close()
 

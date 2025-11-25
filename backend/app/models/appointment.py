@@ -12,20 +12,20 @@ class Appointment(Base):
     __tablename__ = "appointments"
     
     id = Column(Integer, primary_key=True, index=True)
-    psychologist_id = Column(Integer, ForeignKey("psychologists.id"), nullable=False)
-    user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    appointment_date = Column(DateTime(timezone=True), nullable=False)
-    appointment_type = Column(String, nullable=False)  # 'online' ou 'presencial'
+    id_psicologo = Column("psychologist_id", Integer, ForeignKey("psychologists.id"), nullable=False)
+    id_usuario = Column("user_id", Integer, ForeignKey("users.id"), nullable=False)
+    data_agendamento = Column("appointment_date", DateTime(timezone=True), nullable=False)
+    tipo_agendamento = Column("appointment_type", String, nullable=False)  # 'online' ou 'presencial'
     status = Column(String, default='pending')  # 'pending', 'confirmed', 'cancelled', 'completed', 'rejected'
-    rejection_reason = Column(Text)  # Motivo da recusa pelo psicólogo
-    notes = Column(Text)
-    payment_status = Column(String, default='pending')  # 'pending', 'paid', 'failed', 'refunded'
-    payment_id = Column(String)  # ID do pagamento mockado
-    created_at = Column(DateTime(timezone=True), server_default=func.now())
-    updated_at = Column(DateTime(timezone=True), onupdate=func.now())
+    motivo_recusa = Column("rejection_reason", Text)  # Motivo da recusa pelo psicólogo
+    observacoes = Column("notes", Text)
+    status_pagamento = Column("payment_status", String, default='pending')  # 'pending', 'paid', 'failed', 'refunded'
+    id_pagamento = Column("payment_id", String)  # ID do pagamento mockado
+    criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
+    atualizado_em = Column("updated_at", DateTime(timezone=True), onupdate=func.now())
     
-    psychologist = relationship("Psychologist", foreign_keys=[psychologist_id], back_populates="appointments", overlaps="appointments")
-    user = relationship("User", foreign_keys=[user_id], back_populates="appointments", overlaps="appointments")
+    psychologist = relationship("Psychologist", foreign_keys=[id_psicologo], back_populates="appointments", overlaps="appointments")
+    user = relationship("User", foreign_keys=[id_usuario], back_populates="appointments", overlaps="appointments")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -51,10 +51,10 @@ class Appointment(Base):
         """Listar agendamentos de um usuário"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.user_id == id_usuario)
+            query = db.query(cls).filter(cls.id_usuario == id_usuario)
             if status:
                 query = query.filter(cls.status == status)
-            return query.order_by(cls.appointment_date.desc()).all()
+            return query.order_by(cls.data_agendamento.desc()).all()
         finally:
             db.close()
     
@@ -63,10 +63,10 @@ class Appointment(Base):
         """Listar agendamentos de um psicólogo"""
         db = get_db_session()
         try:
-            query = db.query(cls).filter(cls.psychologist_id == id_psicologo)
+            query = db.query(cls).filter(cls.id_psicologo == id_psicologo)
             if status:
                 query = query.filter(cls.status == status)
-            return query.order_by(cls.appointment_date.desc()).all()
+            return query.order_by(cls.data_agendamento.desc()).all()
         finally:
             db.close()
     
@@ -76,9 +76,9 @@ class Appointment(Base):
         db = get_db_session()
         try:
             return db.query(cls).filter(
-                cls.psychologist_id == id_psicologo,
-                cls.appointment_date >= data_inicio,
-                cls.appointment_date <= data_fim,
+                cls.id_psicologo == id_psicologo,
+                cls.data_agendamento >= data_inicio,
+                cls.data_agendamento <= data_fim,
                 cls.status.in_(['pending', 'confirmed'])
             ).all()
         finally:
