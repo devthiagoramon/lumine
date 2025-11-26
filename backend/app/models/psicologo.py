@@ -27,6 +27,7 @@ class Psychologist(Base):
     avaliacao = Column("rating", Float, default=0.0)
     total_avaliacoes = Column("total_reviews", Integer, default=0)
     esta_verificado = Column("is_verified", Boolean, default=False)
+    rejeitado = Column("rejected", Boolean, default=False)  # Indica se foi rejeitado pelo admin
     saldo = Column("balance", Float, default=0.0)  # Saldo disponível para saque
     criado_em = Column("created_at", DateTime(timezone=True), server_default=func.now())
     
@@ -35,9 +36,9 @@ class Psychologist(Base):
     specialties = relationship("Specialty", secondary=psychologist_specialties, back_populates="psychologists")
     approaches = relationship("Approach", secondary=psychologist_approaches, back_populates="psychologists")
     reviews = relationship("Review", back_populates="psychologist")
-    appointments = relationship("Appointment", foreign_keys="Appointment.psychologist_id", back_populates="psychologist", overlaps="appointments")
-    availability = relationship("PsychologistAvailability", foreign_keys="PsychologistAvailability.psychologist_id", back_populates="psychologist", overlaps="availability")
-    withdrawals = relationship("Withdrawal", foreign_keys="Withdrawal.psychologist_id", back_populates="psychologist", overlaps="withdrawals")
+    appointments = relationship("Appointment", back_populates="psychologist", overlaps="appointments")
+    availability = relationship("PsychologistAvailability", back_populates="psychologist", overlaps="availability")
+    withdrawals = relationship("Withdrawal", back_populates="psychologist", overlaps="withdrawals")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -89,14 +90,23 @@ class Psychologist(Base):
     
     @classmethod
     def listar_pendentes(cls) -> List["Psychologist"]:
-        """Listar psicólogos pendentes de verificação"""
+        """Listar psicólogos pendentes de verificação (não rejeitados)"""
         db = get_db_session()
         try:
-            return db.query(cls).options(
+            query = db.query(cls).options(
                 joinedload(cls.user),
                 joinedload(cls.specialties),
                 joinedload(cls.approaches)
-            ).filter(cls.esta_verificado == False).all()
+            ).filter(cls.esta_verificado == False)
+            
+            # Filtrar rejeitados se o campo existir
+            try:
+                query = query.filter(cls.rejeitado == False)
+            except Exception:
+                # Se o campo não existir ainda, ignorar o filtro
+                pass
+            
+            return query.all()
         finally:
             db.close()
     
@@ -122,7 +132,7 @@ class Psychologist(Base):
     ) -> "Psychologist":
         """Criar psicólogo com especialidades e abordagens"""
         from app.models.especialidade import Specialty
-        from app.models.abordagem import Approach
+        from app.models.tratamento import Approach
         
         db = get_db_session()
         try:
@@ -131,18 +141,25 @@ class Psychologist(Base):
             db.flush()  # Para obter o ID
             
             # Adicionar especialidades
-            if specialty_ids:
+            if specialty_ids and len(specialty_ids) > 0:
                 especialidades = Specialty.obter_por_ids(specialty_ids)
                 psicologo.specialties = especialidades
+            else:
+                psicologo.specialties = []
             
             # Adicionar abordagens
-            if approach_ids:
+            if approach_ids and len(approach_ids) > 0:
                 abordagens = Approach.obter_por_ids(approach_ids)
                 psicologo.approaches = abordagens
+            else:
+                psicologo.approaches = []
             
             db.commit()
             db.refresh(psicologo)
             return psicologo
+        except Exception as e:
+            db.rollback()
+            raise e
         finally:
             db.close()
     
@@ -171,7 +188,7 @@ class Psychologist(Base):
     ) -> "Psychologist":
         """Atualizar psicólogo com especialidades e abordagens"""
         from app.models.especialidade import Specialty
-        from app.models.abordagem import Approach
+        from app.models.tratamento import Approach
         
         db = get_db_session()
         try:
@@ -186,17 +203,28 @@ class Psychologist(Base):
             
             # Atualizar especialidades
             if specialty_ids is not None:
-                especialidades = Specialty.obter_por_ids(specialty_ids)
-                psicologo.specialties = especialidades
+                if len(specialty_ids) > 0:
+                    especialidades = Specialty.obter_por_ids(specialty_ids)
+                    psicologo.specialties = especialidades
+                else:
+                    psicologo.specialties = []
             
             # Atualizar abordagens
             if approach_ids is not None:
-                abordagens = Approach.obter_por_ids(approach_ids)
-                psicologo.approaches = abordagens
+                if len(approach_ids) > 0:
+                    abordagens = Approach.obter_por_ids(approach_ids)
+                    psicologo.approaches = abordagens
+                else:
+                    psicologo.approaches = []
             
             db.commit()
             db.refresh(psicologo)
+            
             return psicologo
+        except Exception as e:
+            db.rollback()
+            print(f"ERRO ao atualizar psicólogo: {e}")
+            raise e
         finally:
             db.close()
     

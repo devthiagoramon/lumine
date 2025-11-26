@@ -47,25 +47,41 @@ class Appointment(Base):
             db.close()
     
     @classmethod
-    def listar_por_usuario(cls, id_usuario: int, status: Optional[str] = None) -> List["Appointment"]:
+    def listar_por_usuario(cls, id_usuario: int, status: Optional[str] = None, carregar_relacionamentos: bool = True) -> List["Appointment"]:
         """Listar agendamentos de um usuário"""
         db = get_db_session()
         try:
             query = db.query(cls).filter(cls.id_usuario == id_usuario)
             if status:
                 query = query.filter(cls.status == status)
+            if carregar_relacionamentos:
+                from app.models.psicologo import Psychologist
+                query = query.options(
+                    joinedload(cls.psychologist).joinedload(Psychologist.user),
+                    joinedload(cls.psychologist).joinedload(Psychologist.specialties),
+                    joinedload(cls.psychologist).joinedload(Psychologist.approaches),
+                    joinedload(cls.user)
+                )
             return query.order_by(cls.data_agendamento.desc()).all()
         finally:
             db.close()
     
     @classmethod
-    def listar_por_psicologo(cls, id_psicologo: int, status: Optional[str] = None) -> List["Appointment"]:
+    def listar_por_psicologo(cls, id_psicologo: int, status: Optional[str] = None, carregar_relacionamentos: bool = True) -> List["Appointment"]:
         """Listar agendamentos de um psicólogo"""
         db = get_db_session()
         try:
             query = db.query(cls).filter(cls.id_psicologo == id_psicologo)
             if status:
                 query = query.filter(cls.status == status)
+            if carregar_relacionamentos:
+                from app.models.psicologo import Psychologist
+                query = query.options(
+                    joinedload(cls.psychologist).joinedload(Psychologist.user),
+                    joinedload(cls.psychologist).joinedload(Psychologist.specialties),
+                    joinedload(cls.psychologist).joinedload(Psychologist.approaches),
+                    joinedload(cls.user)
+                )
             return query.order_by(cls.data_agendamento.desc()).all()
         finally:
             db.close()

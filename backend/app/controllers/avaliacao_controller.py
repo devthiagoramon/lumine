@@ -57,10 +57,10 @@ def criar_avaliacao(
     
     # Criar avaliação
     avaliacao_created = Review.criar(
-        psychologist_id=avaliacao.psychologist_id,
-        user_id=usuario_atual.id,
-        rating=avaliacao.rating,
-        comment=avaliacao.comment
+        id_psicologo=avaliacao.psychologist_id,
+        id_usuario=usuario_atual.id,
+        avaliacao=avaliacao.rating,
+        comentario=avaliacao.comment
     )
     
     # Atualizar rating do psicólogo
@@ -102,13 +102,13 @@ def deletar_avaliacao(
     """Deletar avaliação"""
     avaliacao = Review.obter_por_id_com_relacionamentos(id_avaliacao)
     
-    if not avaliacao or avaliacao.user_id != usuario_atual.id:
+    if not avaliacao or avaliacao.id_usuario != usuario_atual.id:
         raise HTTPException(
             status_code=404,
             detail="Avaliação não encontrada"
         )
     
-    id_psicologo = avaliacao.psychologist_id
+    id_psicologo = avaliacao.id_psicologo
     avaliacao.deletar()
     
     # Atualizar rating do psicólogo

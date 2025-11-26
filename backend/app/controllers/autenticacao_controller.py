@@ -14,26 +14,34 @@ router = APIRouter()
 @router.post("/register", response_model=UserResponse)
 def registrar(usuario: UserCreate):
     """Registrar novo usuário"""
-    # Verificar se email já existe
-    usuario_existente = User.obter_por_email(usuario.email)
-    if usuario_existente:
-        raise HTTPException(
-            status_code=400,
-            detail="Email já registrado"
+    try:
+        # Verificar se email já existe
+        usuario_existente = User.obter_por_email(usuario.email)
+        if usuario_existente:
+            raise HTTPException(
+                status_code=400,
+                detail="Email já registrado"
+            )
+        
+        # Criar novo usuário
+        senha_hash = auth.get_password_hash(usuario.password)
+        usuario_created = User.criar(
+            email=usuario.email,
+            senha_hash=senha_hash,
+            nome_completo=usuario.full_name,
+            telefone=usuario.phone,
+            eh_psicologo=usuario.is_psychologist,
+            esta_ativo=True,
+            eh_admin=False
         )
-    
-    # Criar novo usuário
-    senha_hash = auth.get_password_hash(usuario.password)
-    usuario_created = User.criar(
-        email=usuario.email,
-        senha_hash=senha_hash,
-        nome_completo=usuario.full_name,
-        telefone=usuario.phone,
-        eh_psicologo=usuario.is_psychologist,
-        esta_ativo=True,
-        eh_admin=False
-    )
-    return usuario_created
+        return usuario_created
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao criar usuário: {str(e)}"
+        )
 
 @router.post("/login", response_model=Token)
 def fazer_login(

@@ -35,7 +35,7 @@ const FinancialHistory = () => {
       const thisYear = new Date().getFullYear()
       const thisMonthEarnings = historyResponse.data
         .filter(payment => {
-          const paymentDate = new Date(payment.created_at)
+          const paymentDate = new Date(payment.criado_em)
           return paymentDate.getMonth() === thisMonth && paymentDate.getFullYear() === thisYear
         })
         .reduce((sum, payment) => sum + (payment.amount * 0.80), 0)
@@ -179,12 +179,12 @@ const FinancialHistory = () => {
                     return (
                       <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-4 px-4 text-sm text-gray-700">
-                          {formatDate(payment.created_at)}
+                          {formatDate(payment.criado_em)}
                         </td>
                         <td className="py-4 px-4 text-sm text-gray-700">
                           <div className="flex items-center gap-2">
                             <User className="text-gray-500" size={16} />
-                            {payment.appointment?.user?.full_name || 'N/A'}
+                            {payment.appointment?.user?.nome_completo || 'N/A'}
                           </div>
                         </td>
                         <td className="py-4 px-4 text-sm text-gray-700">

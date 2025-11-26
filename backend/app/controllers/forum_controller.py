@@ -22,11 +22,11 @@ def criar_post(
 ):
     """Criar post no fórum"""
     post_objeto = ForumPost.criar(
-        user_id=usuario_atual.id,
-        title=post.title,
-        content=post.content,
-        category=post.category,
-        is_anonymous=post.is_anonymous
+        id_usuario=usuario_atual.id,
+        titulo=post.title,
+        conteudo=post.content,
+        categoria=post.category,
+        eh_anonimo=post.is_anonymous
     )
     
     # Recarregar com relacionamentos e contagem de comentários
@@ -77,7 +77,7 @@ def atualizar_post(
             detail="Post não encontrado"
         )
     
-    if post.user_id != usuario_atual.id:
+    if post.id_usuario != usuario_atual.id:
         raise HTTPException(
             status_code=403,
             detail="Você só pode editar seus próprios posts"
@@ -99,7 +99,7 @@ def deletar_post(
     """Deletar post"""
     post = ForumPost.obter_por_id(id_post)
     
-    if not post or post.user_id != usuario_atual.id:
+    if not post or post.id_usuario != usuario_atual.id:
         raise HTTPException(
             status_code=404,
             detail="Post não encontrado"
@@ -124,10 +124,10 @@ def criar_comentario(
         )
     
     comentario_created = ForumComment.criar(
-        post_id=id_post,
-        user_id=usuario_atual.id,
-        content=comentario.content,
-        is_anonymous=comentario.is_anonymous
+        id_post=id_post,
+        id_usuario=usuario_atual.id,
+        conteudo=comentario.content,
+        eh_anonimo=comentario.is_anonymous
     )
     
     # Recarregar com relacionamentos

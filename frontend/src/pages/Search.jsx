@@ -447,7 +447,7 @@ const Search = () => {
                   return (
                     <div key={psychologist?.id || index} className="card p-6">
                       <h3 className="text-xl font-bold text-gray-900 mb-2">
-                        {psychologist?.user?.full_name || psychologist?.user?.name || 'Psicólogo'}
+                        {psychologist?.user?.nome_completo || 'Psicólogo'}
                       </h3>
                       <p className="text-sm text-gray-600 mb-2">CRP: {psychologist?.crp || 'N/A'}</p>
                       {psychologist?.specialties && psychologist.specialties.length > 0 && (

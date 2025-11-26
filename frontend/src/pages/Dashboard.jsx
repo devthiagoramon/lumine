@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react'
 import { useAuth } from '../contexts/AuthContext'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import { User, Edit, Plus, Briefcase, Star, MapPin, Monitor, Building2 } from 'lucide-react'
+import { User, Edit, Plus, Briefcase, Star, MapPin, Monitor, Building2, AlertCircle, CheckCircle } from 'lucide-react'
 import PsychologistProfileForm from '../components/PsychologistProfileForm'
 
 const Dashboard = () => {
@@ -16,7 +16,7 @@ const Dashboard = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login')
-    } else if (user && user.is_psychologist) {
+    } else if (user && user.eh_psicologo) {
       fetchPsychologistProfile()
     } else {
       setLoading(false)
@@ -86,22 +86,22 @@ const Dashboard = () => {
           <div className="flex items-center justify-between mb-6">
             <div className="flex items-center space-x-4">
               <div className="w-20 h-20 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-full flex items-center justify-center text-white text-3xl font-bold">
-                {user.full_name.charAt(0).toUpperCase()}
+                {user.nome_completo.charAt(0).toUpperCase()}
               </div>
               <div>
-                <h2 className="text-2xl font-bold text-gray-900">{user.full_name}</h2>
+                <h2 className="text-2xl font-bold text-gray-900">{user.nome_completo}</h2>
                 <p className="text-gray-600">{user.email}</p>
-                {user.phone && <p className="text-gray-600">{user.phone}</p>}
+                {user.telefone && <p className="text-gray-600">{user.telefone}</p>}
               </div>
             </div>
             <div className="flex items-center space-x-2">
               <User className="text-primary-600" size={24} />
               <span className="text-sm font-medium text-gray-700">
-                {user.is_psychologist ? 'Psicólogo' : 'Paciente'}
+                {user.eh_psicologo ? 'Psicólogo' : 'Paciente'}
               </span>
             </div>
             <div className="flex gap-3 mt-4">
-              {user.is_psychologist ? (
+              {user.eh_psicologo ? (
                 <Link to="/dashboard/psicologo" className="btn-primary">
                   Ver Dashboard Completo
                 </Link>
@@ -115,7 +115,7 @@ const Dashboard = () => {
         </div>
 
         {/* Psychologist Profile */}
-        {user.is_psychologist && (
+        {user.eh_psicologo && (
           <div className="card p-8">
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-2xl font-bold text-gray-900">Perfil Profissional</h2>
@@ -155,6 +155,39 @@ const Dashboard = () => {
 
             {!showForm && !editing && psychologist && (
               <div className="space-y-6">
+                {/* Status de Verificação */}
+                {!psychologist.is_verified && (
+                  <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-start">
+                      <AlertCircle className="text-yellow-600 mr-3 mt-0.5" size={20} />
+                      <div className="flex-1">
+                        <h3 className="text-sm font-semibold text-yellow-800 mb-1">
+                          Aguardando Aprovação
+                        </h3>
+                        <p className="text-sm text-yellow-700">
+                          Seu perfil está aguardando aprovação da administração. Você poderá receber consultas assim que seu cadastro for verificado.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {psychologist.is_verified && (
+                  <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center">
+                      <CheckCircle className="text-green-600 mr-3" size={20} />
+                      <div>
+                        <h3 className="text-sm font-semibold text-green-800">
+                          Perfil Verificado
+                        </h3>
+                        <p className="text-sm text-green-700">
+                          Seu perfil foi verificado e está visível para pacientes.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">CRP</h3>
                   <p className="text-gray-700">{psychologist.crp}</p>
@@ -174,7 +207,9 @@ const Dashboard = () => {
                       Experiência
                     </h3>
                     <p className="text-gray-700">
-                      {psychologist.experience_years} {psychologist.experience_years === 1 ? 'ano' : 'anos'}
+                      {psychologist.experience_years !== undefined && psychologist.experience_years !== null 
+                        ? psychologist.experience_years 
+                        : 0} {((psychologist.experience_years !== undefined && psychologist.experience_years !== null ? psychologist.experience_years : 0) === 1) ? 'ano' : 'anos'}
                     </p>
                   </div>
 
@@ -204,17 +239,21 @@ const Dashboard = () => {
                 <div>
                   <h3 className="text-lg font-semibold text-gray-900 mb-2">Tipos de Consulta</h3>
                   <div className="flex gap-4">
-                    {psychologist.online_consultation && (
+                    {(psychologist.online_consultation === true || psychologist.online_consultation === 'true') ? (
                       <div className="flex items-center text-gray-700">
                         <Monitor className="mr-2 text-primary-600" size={20} />
                         <span>Online</span>
                       </div>
-                    )}
-                    {psychologist.in_person_consultation && (
+                    ) : null}
+                    {(psychologist.in_person_consultation === true || psychologist.in_person_consultation === 'true') ? (
                       <div className="flex items-center text-gray-700">
                         <Building2 className="mr-2 text-primary-600" size={20} />
                         <span>Presencial</span>
                       </div>
+                    ) : null}
+                    {!(psychologist.online_consultation === true || psychologist.online_consultation === 'true') && 
+                     !(psychologist.in_person_consultation === true || psychologist.in_person_consultation === 'true') && (
+                      <p className="text-gray-500 text-sm">Nenhum tipo de consulta selecionado</p>
                     )}
                   </div>
                 </div>
@@ -268,7 +307,7 @@ const Dashboard = () => {
         )}
 
         {/* Patient View */}
-        {!user.is_psychologist && (
+        {!user.eh_psicologo && (
           <div className="card p-8 text-center">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">
               Bem-vindo à Lumine!

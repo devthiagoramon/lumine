@@ -4,6 +4,7 @@ import { useToast } from '../contexts/ToastContext'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
 import { Calendar, Star, Users, TrendingUp, Clock, CheckCircle, XCircle, MessageSquare, Wallet } from 'lucide-react'
+import AvailabilityManagement from '../components/AvailabilityManagement'
 
 const PsychologistDashboard = () => {
   const { user, loading: authLoading } = useAuth()
@@ -25,7 +26,7 @@ const PsychologistDashboard = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login')
-    } else if (user && !user.is_psychologist) {
+    } else if (user && !user.eh_psicologo) {
       navigate('/dashboard')
     } else if (user) {
       fetchData()
@@ -51,7 +52,7 @@ const PsychologistDashboard = () => {
         }
         setStats({
           total_appointments: (appointmentsRes.data || []).length,
-          pending_appointments: (appointmentsRes.data || []).filter(a => a.status === 'pending').length,
+          pending_appointments: 0, // Não há mais agendamentos pendentes
           confirmed_appointments: (appointmentsRes.data || []).filter(a => a.status === 'confirmed').length,
           completed_appointments: (appointmentsRes.data || []).filter(a => a.status === 'completed').length,
           total_reviews: reviewsRes.data.total_reviews || 0,
@@ -161,20 +162,20 @@ const PsychologistDashboard = () => {
           <div className="card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Pendentes</p>
-                <p className="text-3xl font-bold text-yellow-600">{stats.pending_appointments}</p>
+                <p className="text-sm text-gray-600 mb-1">Confirmados</p>
+                <p className="text-3xl font-bold text-green-600">{stats.confirmed_appointments}</p>
               </div>
-              <Clock className="text-yellow-600" size={32} />
+              <CheckCircle className="text-green-600" size={32} />
             </div>
           </div>
 
           <div className="card p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-sm text-gray-600 mb-1">Confirmados</p>
-                <p className="text-3xl font-bold text-green-600">{stats.confirmed_appointments}</p>
+                <p className="text-sm text-gray-600 mb-1">Concluídos</p>
+                <p className="text-3xl font-bold text-blue-600">{stats.completed_appointments}</p>
               </div>
-              <CheckCircle className="text-green-600" size={32} />
+              <CheckCircle className="text-blue-600" size={32} />
             </div>
           </div>
 
@@ -215,6 +216,16 @@ const PsychologistDashboard = () => {
             >
               Avaliações
             </button>
+            <button
+              onClick={() => setActiveTab('availability')}
+              className={`pb-4 px-4 font-medium transition-colors ${
+                activeTab === 'availability'
+                  ? 'text-primary-600 border-b-2 border-primary-600'
+                  : 'text-gray-600 hover:text-gray-900'
+              }`}
+            >
+              Disponibilidades
+            </button>
           </div>
 
           {/* Appointments Tab */}
@@ -231,17 +242,19 @@ const PsychologistDashboard = () => {
                       <div className="flex-1">
                         <div className="flex items-center gap-3 mb-2">
                           <h3 className="text-lg font-semibold text-gray-900">
-                            {appointment.user.full_name}
+                            {appointment.user.nome_completo}
                           </h3>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
-                            appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             appointment.status === 'confirmed' ? 'bg-green-100 text-green-800' :
                             appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
-                            'bg-red-100 text-red-800'
+                            appointment.status === 'cancelled' ? 'bg-gray-100 text-gray-800' :
+                            appointment.status === 'rejected' ? 'bg-red-100 text-red-800' :
+                            'bg-yellow-100 text-yellow-800'
                           }`}>
-                            {appointment.status === 'pending' ? 'Pendente' :
-                             appointment.status === 'confirmed' ? 'Confirmado' :
-                             appointment.status === 'completed' ? 'Concluído' : 'Cancelado'}
+                            {appointment.status === 'confirmed' ? 'Confirmado' :
+                             appointment.status === 'completed' ? 'Concluído' :
+                             appointment.status === 'cancelled' ? 'Cancelado' :
+                             appointment.status === 'rejected' ? 'Recusado' : 'Outro'}
                           </span>
                         </div>
                         <p className="text-gray-600 mb-1">
@@ -258,23 +271,14 @@ const PsychologistDashboard = () => {
                         )}
                       </div>
                       <div className="flex gap-2">
-                        {appointment.status === 'pending' && (
-                          <>
-                            <button
-                              onClick={() => handleConfirmAppointment(appointment.id)}
-                              className="btn-primary text-sm px-4 py-2 flex items-center"
-                            >
-                              <CheckCircle className="mr-1" size={16} />
-                              Confirmar
-                            </button>
-                            <button
-                              onClick={() => handleRejectAppointment(appointment.id)}
-                              className="btn-secondary text-sm px-4 py-2 flex items-center"
-                            >
-                              <XCircle className="mr-1" size={16} />
-                              Recusar
-                            </button>
-                          </>
+                        {appointment.status === 'confirmed' && (
+                          <button
+                            onClick={() => handleRejectAppointment(appointment.id)}
+                            className="btn-secondary text-sm px-4 py-2 flex items-center bg-red-50 hover:bg-red-100 text-red-700"
+                          >
+                            <XCircle className="mr-1" size={16} />
+                            Cancelar
+                          </button>
                         )}
                         {appointment.status === 'confirmed' && appointment.payment_status === 'paid' && (
                           <button
@@ -305,7 +309,7 @@ const PsychologistDashboard = () => {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-gray-900">
-                          {review.user.full_name}
+                          {review.user.nome_completo}
                         </h3>
                         <div className="flex items-center">
                           {[...Array(5)].map((_, i) => (
@@ -322,7 +326,7 @@ const PsychologistDashboard = () => {
                         </div>
                       </div>
                       <span className="text-sm text-gray-500">
-                        {new Date(review.created_at).toLocaleDateString('pt-BR')}
+                        {new Date(review.criado_em).toLocaleDateString('pt-BR')}
                       </span>
                     </div>
                     {review.comment && (
@@ -332,6 +336,11 @@ const PsychologistDashboard = () => {
                 ))
               )}
             </div>
+          )}
+
+          {/* Availability Tab */}
+          {activeTab === 'availability' && (
+            <AvailabilityManagement />
           )}
         </div>
 

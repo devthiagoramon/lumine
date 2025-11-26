@@ -13,7 +13,7 @@ const AdminDashboard = () => {
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login')
-    } else if (user && !user.is_admin) {
+    } else if (user && !user.eh_admin) {
       navigate('/dashboard')
     }
   }, [user, authLoading, navigate])
@@ -30,7 +30,7 @@ const AdminDashboard = () => {
     )
   }
 
-  if (!user || !user.is_admin) {
+  if (!user || !user.eh_admin) {
     return null
   }
 

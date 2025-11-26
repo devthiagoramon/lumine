@@ -17,7 +17,15 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
 
   // Buscar datas disponíveis ao mudar o mês
   useEffect(() => {
-    fetchAvailableDates()
+    if (psychologistId) {
+      console.log('🔄 DEBUG: useEffect disparado - buscando datas disponíveis')
+      console.log('🔄 DEBUG: psychologistId:', psychologistId)
+      console.log('🔄 DEBUG: currentMonth:', currentMonth)
+      console.log('🔄 DEBUG: appointmentType:', appointmentType)
+      fetchAvailableDates()
+    } else {
+      console.warn('⚠️ DEBUG: psychologistId não está definido!')
+    }
   }, [currentMonth, psychologistId, appointmentType])
 
   // Buscar horários quando uma data é selecionada
@@ -30,6 +38,16 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
   }, [selectedDateState, psychologistId, appointmentType])
 
   const fetchAvailableDates = async () => {
+    console.log('🚀 fetchAvailableDates CHAMADA!')
+    console.log('🚀 psychologistId:', psychologistId)
+    console.log('🚀 appointmentType:', appointmentType)
+    
+    if (!psychologistId) {
+      console.error('❌ ERRO: psychologistId não está definido!')
+      setAvailableDates({})
+      return
+    }
+    
     setLoading(true)
     try {
       const startDate = new Date(currentMonth.getFullYear(), currentMonth.getMonth(), 1)
@@ -38,6 +56,11 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
       const startStr = startDate.toISOString().split('T')[0]
       const endStr = endDate.toISOString().split('T')[0]
 
+      console.log(`📅 DEBUG: Buscando datas disponíveis para psicólogo ${psychologistId}, período: ${startStr} a ${endStr}`)
+      console.log(`📅 DEBUG: URL completa: /api/availability/psychologist/${psychologistId}/available-dates`)
+      console.log(`📅 DEBUG: Parâmetros:`, { start_date: startStr, end_date: endStr, appointment_type: appointmentType })
+      
+      console.log('📡 DEBUG: Fazendo requisição agora...')
       const response = await api.get(
         `/availability/psychologist/${psychologistId}/available-dates`,
         {
@@ -48,15 +71,52 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
           }
         }
       )
+      console.log('✅ DEBUG: Requisição concluída!')
 
       // Criar um objeto com as datas disponíveis
+      console.log('✅ DEBUG: Requisição bem-sucedida!')
+      console.log('✅ DEBUG: Status da resposta:', response.status)
+      console.log('✅ DEBUG: Resposta completa do backend:', JSON.stringify(response.data, null, 2))
+      console.log('✅ DEBUG: Available dates:', response.data.available_dates)
+      console.log('✅ DEBUG: Tipo de available_dates:', typeof response.data.available_dates, Array.isArray(response.data.available_dates))
+      
+      if (!response.data || !response.data.available_dates) {
+        console.warn('⚠️ ATENÇÃO: response.data.available_dates está vazio ou não existe!')
+        console.warn('⚠️ response.data completo:', response.data)
+      }
+      
       const datesMap = {}
-      response.data.available_dates.forEach(dateInfo => {
-        datesMap[dateInfo.date] = dateInfo.count
-      })
+      if (response.data.available_dates && Array.isArray(response.data.available_dates)) {
+        response.data.available_dates.forEach(dateInfo => {
+          // Garantir que a data está no formato YYYY-MM-DD
+          const dateKey = dateInfo.date ? dateInfo.date.split('T')[0] : dateInfo.date
+          datesMap[dateKey] = dateInfo.count || 0
+          console.log(`DEBUG: Adicionando data ao map: ${dateKey} = ${dateInfo.count}`)
+        })
+      }
+      console.log('DEBUG: DatesMap criado:', datesMap)
+      console.log('DEBUG: Chaves do DatesMap:', Object.keys(datesMap))
       setAvailableDates(datesMap)
     } catch (error) {
-      console.error('Erro ao buscar datas disponíveis:', error)
+      console.error('❌ ERRO ao buscar datas disponíveis:', error)
+      console.error('❌ Detalhes do erro:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status,
+        statusText: error.response?.statusText,
+        config: {
+          url: error.config?.url,
+          method: error.config?.method,
+          params: error.config?.params
+        }
+      })
+      if (error.response) {
+        console.error('❌ Resposta do servidor:', error.response.data)
+      } else if (error.request) {
+        console.error('❌ Requisição feita mas sem resposta do servidor')
+      } else {
+        console.error('❌ Erro ao configurar a requisição:', error.message)
+      }
       setAvailableDates({})
     } finally {
       setLoading(false)
@@ -64,9 +124,13 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
   }
 
   const fetchAvailableSlots = async (date) => {
+    console.log('🕐 fetchAvailableSlots CHAMADA para data:', date)
     setLoading(true)
     try {
       const dateStr = date.toISOString().split('T')[0]
+      console.log('🕐 Buscando horários para:', dateStr)
+      console.log('🕐 URL:', `/availability/psychologist/${psychologistId}/available-slots`)
+      
       const response = await api.get(
         `/availability/psychologist/${psychologistId}/available-slots`,
         {
@@ -78,14 +142,23 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
         }
       )
 
+      console.log('✅ Horários recebidos:', response.data)
+      console.log('✅ Available slots:', response.data.available_slots)
+
       // Filtrar apenas os slots do dia selecionado e ordenar por horário
       const daySlots = response.data.available_slots
         .filter(slot => slot.date === dateStr)
         .sort((a, b) => a.time.localeCompare(b.time))
       
+      console.log('✅ Slots filtrados para o dia:', daySlots)
       setAvailableSlots(daySlots)
     } catch (error) {
-      console.error('Erro ao buscar horários disponíveis:', error)
+      console.error('❌ Erro ao buscar horários disponíveis:', error)
+      console.error('❌ Detalhes:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      })
       setAvailableSlots([])
     } finally {
       setLoading(false)
@@ -126,14 +199,22 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
 
     // Dias do mês atual
     const today = new Date()
+    today.setHours(0, 0, 0, 0) // Normalizar para meia-noite para comparação
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day)
-      const dateStr = date.toISOString().split('T')[0]
-      const isToday = date.toDateString() === today.toDateString()
+      date.setHours(0, 0, 0, 0) // Normalizar para meia-noite
+      // Usar formato YYYY-MM-DD manualmente para evitar problemas de timezone
+      const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`
+      const isToday = date.getTime() === today.getTime()
       const isSelected = selectedDateState && dateStr === selectedDateState.toISOString().split('T')[0]
       const isAvailable = dateStr in availableDates
       const availableCount = availableDates[dateStr] || 0
-      const isPast = date < today && !isToday
+      const isPast = date < today
+      
+      // Debug para segundas e terças
+      if (date.getDay() === 1 || date.getDay() === 2) {
+        console.log(`DEBUG Calendar: ${dateStr} (dia ${date.getDay()}), isAvailable: ${isAvailable}, count: ${availableCount}, availableDates keys:`, Object.keys(availableDates))
+      }
 
       days.push({
         date,
@@ -163,7 +244,8 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
   }
 
   const handleDateClick = (day) => {
-    if (!day.isPast && day.isCurrentMonth) {
+    // Só permitir selecionar se não for passado, for do mês atual E tiver disponibilidade
+    if (!day.isPast && day.isCurrentMonth && day.isAvailable) {
       setSelectedDateState(day.date)
       if (onSelectSlot) {
         onSelectSlot(null, null) // Limpar seleção de horário ao mudar data
@@ -173,7 +255,34 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
 
   const handleTimeClick = (slot) => {
     if (onSelectSlot && selectedDateState) {
-      const datetime = new Date(slot.datetime)
+      // Extrair horas e minutos do horário do slot (formato "HH:MM")
+      const [hours, minutes] = slot.time.split(':').map(Number)
+      
+      // Criar datetime usando a data selecionada e o horário do slot
+      // Usar getFullYear, getMonth, getDate para evitar problemas de timezone
+      const year = selectedDateState.getFullYear()
+      const month = selectedDateState.getMonth()
+      const day = selectedDateState.getDate()
+      
+      const datetime = new Date(year, month, day, hours, minutes, 0, 0)
+      
+      console.log('🕐 Horário selecionado:', {
+        slotTime: slot.time,
+        hours: hours,
+        minutes: minutes,
+        selectedDate: `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`,
+        createdDatetime: datetime.toISOString(),
+        localHours: datetime.getHours(),
+        localMinutes: datetime.getMinutes(),
+        localString: datetime.toLocaleString('pt-BR', { 
+          hour: '2-digit', 
+          minute: '2-digit',
+          day: '2-digit',
+          month: '2-digit',
+          year: 'numeric'
+        })
+      })
+      
       onSelectSlot(selectedDateState, datetime)
     }
   }
@@ -235,18 +344,26 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
               <button
                 key={index}
                 onClick={() => handleDateClick(day)}
-                disabled={day.isPast || !day.isCurrentMonth}
+                disabled={day.isPast || !day.isCurrentMonth || !day.isAvailable}
+                title={
+                  day.isPast 
+                    ? 'Data no passado' 
+                    : !day.isCurrentMonth 
+                    ? 'Dia de outro mês'
+                    : !day.isAvailable
+                    ? 'Psicólogo não trabalha neste dia'
+                    : 'Selecionar data'
+                }
                 className={`
                   aspect-square p-2 rounded-lg text-sm font-medium transition-all
                   ${!day.isCurrentMonth ? 'text-gray-300 cursor-default' : ''}
                   ${day.isPast ? 'text-gray-300 cursor-not-allowed bg-gray-50' : ''}
-                  ${day.isToday && !isSelected && day.isCurrentMonth && !day.isPast ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' : ''}
+                  ${!day.isAvailable && day.isCurrentMonth && !day.isPast ? 'text-gray-400 bg-gray-100 cursor-not-allowed border border-gray-200 opacity-60' : ''}
+                  ${day.isToday && !isSelected && day.isCurrentMonth && !day.isPast && day.isAvailable ? 'bg-blue-50 text-blue-600 border-2 border-blue-200' : ''}
                   ${isSelected ? 'bg-blue-600 text-white shadow-lg scale-105' : ''}
-                  ${!day.isPast && day.isCurrentMonth && !isSelected
-                    ? day.isAvailable
+                  ${!day.isPast && day.isCurrentMonth && day.isAvailable && !isSelected
                       ? 'hover:bg-blue-50 hover:text-blue-600 hover:border-2 hover:border-blue-200 cursor-pointer border border-transparent'
-                      : 'text-gray-400 bg-gray-50 hover:bg-gray-100 cursor-pointer border border-gray-200'
-                    : ''
+                      : ''
                   }
                   flex flex-col items-center justify-center relative
                 `}
@@ -255,6 +372,11 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
                 {day.isAvailable && day.availableCount > 0 && !day.isPast && (
                   <span className="text-xs mt-1 opacity-75">
                     {day.availableCount} {day.availableCount === 1 ? 'horário' : 'horários'}
+                  </span>
+                )}
+                {!day.isAvailable && day.isCurrentMonth && !day.isPast && (
+                  <span className="text-xs mt-1 opacity-50">
+                    Indisponível
                   </span>
                 )}
               </button>
@@ -285,9 +407,30 @@ const AppointmentCalendar = ({ psychologistId, appointmentType, onSelectSlot, se
           ) : availableSlots.length > 0 ? (
             <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
               {availableSlots.map((slot, index) => {
-                const slotDatetime = new Date(slot.datetime)
+                // Comparar usando a data e o horário (HH:MM) ao invés do datetime completo
+                const [slotHours, slotMinutes] = slot.time.split(':').map(Number)
+                const selectedDateStr = selectedDateState?.toISOString().split('T')[0]
+                const slotDateStr = slot.date
+                
+                // Criar um datetime de referência para comparação usando o horário do slot
+                const slotDateTime = new Date(selectedDateState)
+                slotDateTime.setHours(slotHours, slotMinutes, 0, 0)
+                
                 const isSelected = selectedTime && 
-                  selectedTime.toISOString() === slotDatetime.toISOString()
+                  selectedDateStr === slotDateStr &&
+                  selectedTime.getHours() === slotHours &&
+                  selectedTime.getMinutes() === slotMinutes
+                
+                console.log('🔍 Comparando horário:', {
+                  slotTime: slot.time,
+                  slotHours,
+                  slotMinutes,
+                  selectedTimeHours: selectedTime?.getHours(),
+                  selectedTimeMinutes: selectedTime?.getMinutes(),
+                  isSelected,
+                  selectedDateStr,
+                  slotDateStr
+                })
                 
                 return (
                   <button

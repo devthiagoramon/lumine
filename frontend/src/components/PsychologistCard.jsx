@@ -13,7 +13,7 @@ const PsychologistCard = ({ psychologist }) => {
     console.warn('⚠️ PsychologistCard: psychologist.user é null ou undefined', psychologist)
   }
 
-  const userName = psychologist.user?.full_name || psychologist.user?.name || 'Nome não disponível'
+  const userName = psychologist.user?.nome_completo || 'Nome não disponível'
   const specialties = psychologist.specialties || []
 
   return (

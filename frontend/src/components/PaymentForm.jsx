@@ -17,9 +17,25 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
 
   // Calcular desconto se for primeira consulta
   const calculatePrice = () => {
-    if (!appointment?.psychologist?.consultation_price) return 0
+    // Tentar diferentes nomes de campo (consultation_price ou preco_consulta)
+    const price = appointment?.psychologist?.consultation_price || 
+                  appointment?.psychologist?.preco_consulta || 
+                  0
     
-    const originalPrice = appointment.psychologist.consultation_price
+    console.log('💰 DEBUG: Calculando preço:', {
+      appointment: appointment,
+      psychologist: appointment?.psychologist,
+      consultation_price: appointment?.psychologist?.consultation_price,
+      preco_consulta: appointment?.psychologist?.preco_consulta,
+      price: price
+    })
+    
+    if (!price || price <= 0) {
+      console.warn('⚠️ DEBUG: Preço não encontrado ou inválido')
+      return 0
+    }
+    
+    const originalPrice = price
     
     // Se temos informação de desconto, usar ela
     if (discountInfo && discountInfo.is_first_appointment) {
@@ -32,15 +48,24 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
   }
 
   const finalPrice = calculatePrice()
-  const originalPrice = appointment?.psychologist?.consultation_price || 0
+  const originalPrice = appointment?.psychologist?.consultation_price || 
+                        appointment?.psychologist?.preco_consulta || 
+                        0
   const hasDiscount = discountInfo && discountInfo.is_first_appointment
+  
+  console.log('💰 DEBUG: Preços finais:', {
+    finalPrice,
+    originalPrice,
+    hasDiscount
+  })
 
   useEffect(() => {
     // Buscar informação de desconto quando o componente for montado
     const fetchDiscountInfo = async () => {
-      if (appointment?.psychologist?.id) {
+      const psychologistId = appointment?.psychologist?.id || appointment?.psychologist_id
+      if (psychologistId) {
         try {
-          const response = await axios.get(`/api/appointments/verificar-primeira-consulta/${appointment.psychologist.id}`)
+          const response = await axios.get(`/api/appointments/verificar-primeira-consulta/${psychologistId}`)
           setDiscountInfo(response.data)
         } catch (error) {
           console.error('Erro ao verificar desconto:', error)
@@ -48,7 +73,7 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
       }
     }
     fetchDiscountInfo()
-  }, [appointment?.psychologist?.id])
+  }, [appointment?.psychologist?.id, appointment?.psychologist_id])
 
   const handleChange = (e) => {
     const { name, value } = e.target
@@ -162,7 +187,7 @@ const PaymentForm = ({ appointment, onSuccess, onCancel }) => {
 
       <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
         <p className="text-sm text-gray-700 mb-1">
-          <span className="font-medium">Psicólogo:</span> {appointment.psychologist?.user?.full_name || 'N/A'}
+          <span className="font-medium">Psicólogo:</span> {appointment.psychologist?.user?.nome_completo || appointment.psychologist?.user?.full_name || appointment.psychologist?.nome || 'N/A'}
         </p>
         <p className="text-sm text-gray-700 mb-2">
           <span className="font-medium">Data:</span> {new Date(appointment.appointment_date).toLocaleString('pt-BR')}

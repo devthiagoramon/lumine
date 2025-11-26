@@ -24,15 +24,16 @@ class User(Base):
     # Relacionamentos
     psychologist_profile = relationship("Psychologist", back_populates="user", uselist=False)
     favorite_psychologists = relationship("Psychologist", secondary=favorites, backref="favorited_by")
-    appointments = relationship("Appointment", foreign_keys="Appointment.user_id", back_populates="user", overlaps="appointments")
-    reviews = relationship("Review", foreign_keys="Review.user_id", back_populates="user", overlaps="reviews")
-    forum_posts = relationship("ForumPost", foreign_keys="ForumPost.user_id", back_populates="user", overlaps="forum_posts")
-    forum_comments = relationship("ForumComment", foreign_keys="ForumComment.user_id", back_populates="user", overlaps="forum_comments")
-    emotion_diaries = relationship("EmotionDiary", foreign_keys="EmotionDiary.user_id", back_populates="user", overlaps="emotion_diaries")
-    payments = relationship("Payment", foreign_keys="Payment.user_id", back_populates="user", overlaps="payments")
-    notifications = relationship("Notification", foreign_keys="Notification.user_id", back_populates="user", overlaps="notifications")
-    questionnaires = relationship("Questionnaire", foreign_keys="Questionnaire.user_id", back_populates="user", overlaps="questionnaires")
-    pre_registrations = relationship("PsychologistPreRegistration", foreign_keys="PsychologistPreRegistration.user_id", back_populates="user", overlaps="pre_registrations")
+    # Usar foreign_keys apenas quando necessário - o SQLAlchemy pode inferir automaticamente baseado nas foreign keys definidas nos outros modelos
+    appointments = relationship("Appointment", back_populates="user", overlaps="appointments")
+    reviews = relationship("Review", back_populates="user", overlaps="reviews")
+    forum_posts = relationship("ForumPost", back_populates="user", overlaps="forum_posts")
+    forum_comments = relationship("ForumComment", back_populates="user", overlaps="forum_comments")
+    emotion_diaries = relationship("EmotionDiary", back_populates="user", overlaps="emotion_diaries")
+    payments = relationship("Payment", back_populates="user", overlaps="payments")
+    notifications = relationship("Notification", back_populates="user", overlaps="notifications")
+    questionnaires = relationship("Questionnaire", back_populates="user", overlaps="questionnaires")
+    pre_registrations = relationship("PsychologistPreRegistration", back_populates="user", overlaps="pre_registrations")
     
     # Métodos de acesso ao banco
     @classmethod
@@ -63,6 +64,9 @@ class User(Base):
             db.commit()
             db.refresh(usuario)
             return usuario
+        except Exception as e:
+            db.rollback()
+            raise e
         finally:
             db.close()
     

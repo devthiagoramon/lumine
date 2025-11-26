@@ -30,7 +30,7 @@ const PsychologistProfile = () => {
       return
     }
     
-    if (currentUser.is_psychologist) {
+    if (currentUser.eh_psicologo) {
       showError('Psicólogos não podem agendar consultas com outros psicólogos.')
       return
     }
@@ -47,7 +47,7 @@ const PsychologistProfile = () => {
   }, [id, currentUser])
 
   const checkDiscount = async () => {
-    if (!currentUser || currentUser.is_psychologist) return
+    if (!currentUser || currentUser.eh_psicologo) return
     try {
       const response = await axios.get(`/api/appointments/verificar-primeira-consulta/${id}`)
       setDiscountInfo(response.data)
@@ -59,10 +59,13 @@ const PsychologistProfile = () => {
   const fetchPsychologist = async () => {
     try {
       const response = await axios.get(`/api/psychologists/${id}`)
+      console.log('Dados do psicólogo recebidos:', response.data)
       setPsychologist(response.data)
       fetchReviews()
     } catch (error) {
       console.error('Erro ao carregar perfil:', error)
+      console.error('Resposta completa:', error.response)
+      showError('Erro ao carregar perfil do psicólogo')
     } finally {
       setLoading(false)
     }
@@ -159,12 +162,12 @@ const PsychologistProfile = () => {
         <div className="card p-8 mb-6">
           <div className="flex flex-col md:flex-row items-start md:items-center gap-6">
             <div className="w-32 h-32 bg-gradient-to-br from-primary-400 to-secondary-400 rounded-full flex items-center justify-center text-white text-5xl font-bold">
-              {psychologist.user.full_name.charAt(0).toUpperCase()}
+              {psychologist.user.nome_completo.charAt(0).toUpperCase()}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-3 mb-2">
                 <h1 className="text-3xl font-bold text-gray-900">
-                  {psychologist.user.full_name}
+                  {psychologist.user.nome_completo}
                 </h1>
                 {psychologist.is_verified && (
                   <CheckCircle className="text-primary-600" size={24} />
@@ -224,7 +227,7 @@ const PsychologistProfile = () => {
               </button>
               
               {/* Botão de Favoritos - Apenas para usuários logados que não são psicólogos */}
-              {currentUser && !currentUser.is_psychologist && (
+              {currentUser && !currentUser.eh_psicologo && (
                 <button
                   onClick={handleToggleFavorite}
                   className={`btn-secondary flex items-center justify-center w-full md:w-auto ${
@@ -313,17 +316,20 @@ const PsychologistProfile = () => {
               Tipos de Consulta
             </h3>
             <div className="space-y-2">
-              {psychologist.online_consultation && (
+              {(psychologist.online_consultation === true || psychologist.online_consultation === 'true') && (
                 <div className="flex items-center text-gray-700">
                   <Monitor className="mr-2 text-primary-600" size={20} />
                   <span>Consulta Online</span>
                 </div>
               )}
-              {psychologist.in_person_consultation && (
+              {(psychologist.in_person_consultation === true || psychologist.in_person_consultation === 'true') && (
                 <div className="flex items-center text-gray-700">
                   <Building2 className="mr-2 text-primary-600" size={20} />
                   <span>Consulta Presencial</span>
                 </div>
+              )}
+              {(!psychologist.online_consultation && !psychologist.in_person_consultation) && (
+                <p className="text-gray-500 italic">Nenhum tipo de consulta configurado</p>
               )}
             </div>
             {psychologist.consultation_price && (
@@ -360,9 +366,9 @@ const PsychologistProfile = () => {
         </div>
 
         {/* Specialties */}
-        {psychologist.specialties.length > 0 && (
-          <div className="card p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Especialidades</h2>
+        <div className="card p-6 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Especialidades</h2>
+          {psychologist.specialties && psychologist.specialties.length > 0 ? (
             <div className="flex flex-wrap gap-3">
               {psychologist.specialties.map(spec => (
                 <div
@@ -373,13 +379,15 @@ const PsychologistProfile = () => {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-gray-500 italic">Nenhuma especialidade cadastrada</p>
+          )}
+        </div>
 
         {/* Approaches */}
-        {psychologist.approaches.length > 0 && (
-          <div className="card p-6 mb-6">
-            <h2 className="text-2xl font-bold text-gray-900 mb-4">Abordagens Terapêuticas</h2>
+        <div className="card p-6 mb-6">
+          <h2 className="text-2xl font-bold text-gray-900 mb-4">Abordagens Terapêuticas</h2>
+          {psychologist.approaches && psychologist.approaches.length > 0 ? (
             <div className="flex flex-wrap gap-3">
               {psychologist.approaches.map(approach => (
                 <div
@@ -390,8 +398,10 @@ const PsychologistProfile = () => {
                 </div>
               ))}
             </div>
-          </div>
-        )}
+          ) : (
+            <p className="text-gray-500 italic">Nenhuma abordagem terapêutica cadastrada</p>
+          )}
+        </div>
 
         {/* Experience */}
         {psychologist.experience_years > 0 && (
@@ -441,7 +451,7 @@ const PsychologistProfile = () => {
                   <div className="flex items-start justify-between mb-2">
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-gray-900">
-                        {review.user.full_name}
+                        {review.user.nome_completo}
                       </h3>
                       <div className="flex items-center">
                         {[...Array(5)].map((_, i) => (
@@ -458,7 +468,7 @@ const PsychologistProfile = () => {
                       </div>
                     </div>
                     <span className="text-sm text-gray-500">
-                      {new Date(review.created_at).toLocaleDateString('pt-BR')}
+                      {new Date(review.criado_em).toLocaleDateString('pt-BR')}
                     </span>
                   </div>
                   {review.comment && (
@@ -471,16 +481,16 @@ const PsychologistProfile = () => {
         </div>
 
         {/* Contact Info */}
-        {psychologist.user.phone && (
+        {psychologist.user.telefone && (
           <div className="card p-6">
             <h2 className="text-2xl font-bold text-gray-900 mb-4">Contato</h2>
             <div className="space-y-2">
               <p className="text-gray-700">
                 <span className="font-medium">Email:</span> {psychologist.user.email}
               </p>
-              {psychologist.user.phone && (
+              {psychologist.user.telefone && (
                 <p className="text-gray-700">
-                  <span className="font-medium">Telefone:</span> {psychologist.user.phone}
+                  <span className="font-medium">Telefone:</span> {psychologist.user.telefone}
                 </p>
               )}
             </div>

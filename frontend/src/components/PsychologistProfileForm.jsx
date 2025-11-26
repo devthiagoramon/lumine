@@ -1,8 +1,10 @@
 import { useState, useEffect } from 'react'
 import axios from 'axios'
 import { Save, X } from 'lucide-react'
+import { useAuth } from '../contexts/AuthContext'
 
 const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
+  const { user } = useAuth()
   const [formData, setFormData] = useState({
     crp: psychologist?.crp || '',
     bio: psychologist?.bio || '',
@@ -14,30 +16,35 @@ const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
     city: psychologist?.city || '',
     state: psychologist?.state || '',
     zip_code: psychologist?.zip_code || '',
-    specialty_ids: psychologist?.specialties?.map(s => s.id) || [],
-    approach_ids: psychologist?.approaches?.map(a => a.id) || [],
+    specialties_text: psychologist?.specialties?.map(s => s.name).join(', ') || '',
+    approaches_text: psychologist?.approaches?.map(a => a.name).join(', ') || '',
+    specialty_ids: [],
+    approach_ids: [],
   })
-  const [specialties, setSpecialties] = useState([])
-  const [approaches, setApproaches] = useState([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
+  // Atualizar formData quando psychologist mudar
   useEffect(() => {
-    fetchOptions()
-  }, [])
-
-  const fetchOptions = async () => {
-    try {
-      const [specRes, appRes] = await Promise.all([
-        axios.get('/api/search/specialties'),
-        axios.get('/api/search/approaches')
-      ])
-      setSpecialties(specRes.data)
-      setApproaches(appRes.data)
-    } catch (error) {
-      console.error('Erro ao carregar opções:', error)
+    if (psychologist) {
+      setFormData({
+        crp: psychologist.crp || '',
+        bio: psychologist.bio || '',
+        experience_years: psychologist.experience_years !== undefined && psychologist.experience_years !== null ? psychologist.experience_years : 0,
+        consultation_price: psychologist.consultation_price || '',
+        online_consultation: psychologist.online_consultation === true || psychologist.online_consultation === 'true',
+        in_person_consultation: psychologist.in_person_consultation === true || psychologist.in_person_consultation === 'true',
+        address: psychologist.address || '',
+        city: psychologist.city || '',
+        state: psychologist.state || '',
+        zip_code: psychologist.zip_code || '',
+        specialties_text: psychologist.specialties?.map(s => s.name).join(', ') || '',
+        approaches_text: psychologist.approaches?.map(a => a.name).join(', ') || '',
+        specialty_ids: [],
+        approach_ids: [],
+      })
     }
-  }
+  }, [psychologist])
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target
@@ -47,14 +54,6 @@ const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
     }))
   }
 
-  const handleToggle = (field, value) => {
-    setFormData(prev => ({
-      ...prev,
-      [field]: prev[field].includes(value)
-        ? prev[field].filter(id => id !== value)
-        : [...prev[field], value]
-    }))
-  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
@@ -62,20 +61,110 @@ const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
     setLoading(true)
 
     try {
+      // Buscar IDs das especialidades e abordagens pelo nome
+      let specialty_ids = []
+      let approach_ids = []
+
+      if (formData.specialties_text.trim()) {
+        try {
+          const specRes = await axios.get('/api/search/specialties')
+          const specialtiesList = (specRes.data || []).filter(s => s && s.name) // Filtrar itens undefined/null
+          const specialtiesNames = formData.specialties_text.split(',').map(s => s.trim()).filter(s => s)
+          
+          specialty_ids = specialtiesNames.map(name => {
+            const found = specialtiesList.find(s => s && s.name && s.name.toLowerCase() === name.toLowerCase())
+            return found ? found.id : null
+          }).filter(id => id !== null)
+        } catch (err) {
+          console.error('Erro ao buscar especialidades:', err)
+        }
+      }
+
+      if (formData.approaches_text.trim()) {
+        try {
+          const appRes = await axios.get('/api/search/approaches')
+          const approachesList = (appRes.data || []).filter(a => a && a.name) // Filtrar itens undefined/null
+          const approachesNames = formData.approaches_text.split(',').map(a => a.trim()).filter(a => a)
+          
+          approach_ids = approachesNames.map(name => {
+            const found = approachesList.find(a => a && a.name && a.name.toLowerCase() === name.toLowerCase())
+            return found ? found.id : null
+          }).filter(id => id !== null)
+        } catch (err) {
+          console.error('Erro ao buscar abordagens:', err)
+        }
+      }
+
+      // Garantir que experience_years seja sempre um número válido
+      const experienceYearsValue = formData.experience_years
+      const experienceYears = experienceYearsValue !== '' && experienceYearsValue !== null && experienceYearsValue !== undefined
+        ? parseInt(experienceYearsValue)
+        : 0
+      
+      // Garantir que os valores booleanos sejam sempre enviados explicitamente
+      const onlineConsultation = formData.online_consultation === true || formData.online_consultation === 'true' || formData.online_consultation === 1
+      const inPersonConsultation = formData.in_person_consultation === true || formData.in_person_consultation === 'true' || formData.in_person_consultation === 1
+      
+      // Garantir que os valores booleanos sejam sempre enviados explicitamente como boolean
       const data = {
-        ...formData,
-        consultation_price: formData.consultation_price ? parseFloat(formData.consultation_price) : null,
-        experience_years: parseInt(formData.experience_years),
+        bio: formData.bio || null,
+        experience_years: isNaN(experienceYears) ? 0 : experienceYears,
+        consultation_price: formData.consultation_price && formData.consultation_price !== '' 
+          ? parseFloat(formData.consultation_price) 
+          : null,
+        online_consultation: onlineConsultation,
+        in_person_consultation: inPersonConsultation,
+        address: formData.address || null,
+        city: formData.city || null,
+        state: formData.state || null,
+        zip_code: formData.zip_code || null,
+        specialty_ids: specialty_ids.length > 0 ? specialty_ids : [],
+        approach_ids: approach_ids.length > 0 ? approach_ids : [],
+      }
+      
+      // Adicionar CRP apenas se não for edição (para não tentar atualizar)
+      if (!psychologist) {
+        data.crp = formData.crp
+      }
+      
+      console.log('Dados sendo enviados:', data)
+
+      // Garantir que o token está sendo enviado
+      const token = localStorage.getItem('token')
+      if (!token) {
+        setError('Você precisa estar logado para salvar o perfil. Redirecionando para login...')
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 2000)
+        return
+      }
+      
+      // Configurar headers com o token
+      const config = {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        }
       }
 
       if (psychologist) {
-        await axios.put('/api/psychologists/me', data)
+        await axios.put('/api/psychologists/me', data, config)
       } else {
-        await axios.post('/api/psychologists/', data)
+        await axios.post('/api/psychologists/', data, config)
       }
       onSuccess()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar perfil')
+      console.error('Erro ao salvar perfil:', err)
+      if (err.response?.status === 401) {
+        setError('Sua sessão expirou. Por favor, faça login novamente.')
+        localStorage.removeItem('token')
+        // Redirecionar para login após 2 segundos
+        setTimeout(() => {
+          window.location.href = '/login'
+        }, 2000)
+      } else {
+        setError(err.response?.data?.detail || 'Erro ao salvar perfil. Tente novamente.')
+      }
     } finally {
       setLoading(false)
     }
@@ -89,22 +178,26 @@ const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
         </div>
       )}
 
-      {!psychologist && (
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-2">
-            CRP (Conselho Regional de Psicologia) *
-          </label>
-          <input
-            type="text"
-            name="crp"
-            required
-            value={formData.crp}
-            onChange={handleChange}
-            className="input-field"
-            placeholder="Ex: 06/123456"
-          />
-        </div>
-      )}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">
+          CRP (Conselho Regional de Psicologia) {!psychologist && '*'}
+        </label>
+        <input
+          type="text"
+          name="crp"
+          required={!psychologist}
+          value={formData.crp}
+          onChange={handleChange}
+          className="input-field"
+          placeholder="Ex: 06/123456"
+          readOnly={!!psychologist}
+        />
+        {psychologist && (
+          <p className="text-xs text-gray-500 mt-1">
+            O CRP não pode ser alterado após o cadastro
+          </p>
+        )}
+      </div>
 
       <div>
         <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -239,41 +332,37 @@ const PsychologistProfileForm = ({ psychologist, onSuccess, onCancel }) => {
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           Especialidades
         </label>
-        <div className="max-h-48 overflow-y-auto border rounded-lg p-3 space-y-2">
-          {specialties.map(spec => (
-            <label key={spec.id} className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.specialty_ids.includes(spec.id)}
-                onChange={() => handleToggle('specialty_ids', spec.id)}
-                className="mr-2"
-              />
-              <span className="text-sm">{spec.name}</span>
-            </label>
-          ))}
-        </div>
+        <input
+          type="text"
+          name="specialties_text"
+          value={formData.specialties_text}
+          onChange={handleChange}
+          className="input-field"
+          placeholder="Ex: Ansiedade, Depressão, TDAH (separadas por vírgula)"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Digite as especialidades separadas por vírgula
+        </p>
       </div>
 
       <div>
-        <label className="block text-sm font-medium text-gray-700 mb-3">
+        <label className="block text-sm font-medium text-gray-700 mb-2">
           Abordagens Terapêuticas
         </label>
-        <div className="max-h-48 overflow-y-auto border rounded-lg p-3 space-y-2">
-          {approaches.map(approach => (
-            <label key={approach.id} className="flex items-center">
-              <input
-                type="checkbox"
-                checked={formData.approach_ids.includes(approach.id)}
-                onChange={() => handleToggle('approach_ids', approach.id)}
-                className="mr-2"
-              />
-              <span className="text-sm">{approach.name}</span>
-            </label>
-          ))}
-        </div>
+        <input
+          type="text"
+          name="approaches_text"
+          value={formData.approaches_text}
+          onChange={handleChange}
+          className="input-field"
+          placeholder="Ex: TCC, Psicanálise, Humanista (separadas por vírgula)"
+        />
+        <p className="text-xs text-gray-500 mt-1">
+          Digite as abordagens separadas por vírgula
+        </p>
       </div>
 
       <div className="flex gap-4">

@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import api from '../api/axios'
 import { Monitor, Building2, X, Calendar as CalendarIcon, Clock } from 'lucide-react'
 import AppointmentCalendar from './AppointmentCalendar'
+import PaymentForm from './PaymentForm'
 
 const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
   const [formData, setFormData] = useState({
@@ -12,7 +13,8 @@ const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
   const [selectedTime, setSelectedTime] = useState(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [step, setStep] = useState(1) // 1: Tipo e Calendário, 2: Confirmação
+  const [step, setStep] = useState(1) // 1: Tipo e Calendário, 2: Confirmação e Pagamento
+  const [createdAppointment, setCreatedAppointment] = useState(null)
 
   // Resetar seleção quando mudar tipo de consulta
   useEffect(() => {
@@ -78,8 +80,9 @@ const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
         notes: formData.notes || null
       }
 
-      await api.post('/appointments/', appointmentData)
-      onSuccess()
+      const response = await api.post('/appointments/', appointmentData)
+      setCreatedAppointment(response.data)
+      // Não chamar onSuccess ainda - aguardar pagamento
     } catch (err) {
       console.error('Erro ao criar agendamento:', err)
       const errorMessage = err.response?.data?.detail || err.message || 'Erro ao criar agendamento'
@@ -92,7 +95,9 @@ const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
 
   const formatDateTime = (date) => {
     if (!date) return ''
-    return date.toLocaleString('pt-BR', {
+    // Usar o timezone local do navegador
+    const localDate = new Date(date)
+    return localDate.toLocaleString('pt-BR', {
       weekday: 'long',
       day: 'numeric',
       month: 'long',
@@ -216,77 +221,101 @@ const AppointmentForm = ({ psychologist, onSuccess, onCancel }) => {
           </div>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Resumo */}
-          <div className="bg-gray-50 rounded-lg p-6 space-y-4">
-            <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumo do Agendamento</h3>
-            
-            <div className="space-y-3">
-              <div className="flex items-start gap-3">
-                <CalendarIcon className="text-primary-600 mt-1" size={20} />
-                <div>
-                  <p className="text-sm text-gray-600">Data e Horário</p>
-                  <p className="font-medium text-gray-800">{formatDateTime(selectedTime)}</p>
+        <>
+          {!createdAppointment ? (
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Resumo */}
+              <div className="bg-gray-50 rounded-lg p-6 space-y-4">
+                <h3 className="text-lg font-semibold text-gray-800 mb-4">Resumo do Agendamento</h3>
+                
+                <div className="space-y-3">
+                  <div className="flex items-start gap-3">
+                    <CalendarIcon className="text-primary-600 mt-1" size={20} />
+                    <div>
+                      <p className="text-sm text-gray-600">Data e Horário</p>
+                      <p className="font-medium text-gray-800">{formatDateTime(selectedTime)}</p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    {formData.appointment_type === 'online' ? (
+                      <Monitor className="text-blue-600 mt-1" size={20} />
+                    ) : (
+                      <Building2 className="text-blue-600 mt-1" size={20} />
+                    )}
+                    <div>
+                      <p className="text-sm text-gray-600">Tipo de Consulta</p>
+                      <p className="font-medium text-gray-800 capitalize">
+                        {formData.appointment_type === 'online' ? 'Online' : 'Presencial'}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-start gap-3">
+                    <div className="w-5 h-5 rounded-full bg-primary-600 mt-1"></div>
+                    <div>
+                      <p className="text-sm text-gray-600">Psicólogo</p>
+                      <p className="font-medium text-gray-800">{psychologist.user?.nome_completo || 'Psicólogo'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div className="flex items-start gap-3">
-                {formData.appointment_type === 'online' ? (
-                  <Monitor className="text-blue-600 mt-1" size={20} />
-                ) : (
-                  <Building2 className="text-blue-600 mt-1" size={20} />
-                )}
-                <div>
-                  <p className="text-sm text-gray-600">Tipo de Consulta</p>
-                  <p className="font-medium text-gray-800 capitalize">
-                    {formData.appointment_type === 'online' ? 'Online' : 'Presencial'}
-                  </p>
-                </div>
+              {/* Observações */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Observações (opcional)
+                </label>
+                <textarea
+                  name="notes"
+                  value={formData.notes}
+                  onChange={handleChange}
+                  rows={4}
+                  className="input-field w-full"
+                  placeholder="Alguma observação ou informação adicional que gostaria de compartilhar..."
+                />
               </div>
 
-              <div className="flex items-start gap-3">
-                <div className="w-5 h-5 rounded-full bg-primary-600 mt-1"></div>
-                <div>
-                  <p className="text-sm text-gray-600">Psicólogo</p>
-                  <p className="font-medium text-gray-800">{psychologist.user?.full_name || 'Psicólogo'}</p>
-                </div>
+              {/* Botões */}
+              <div className="flex gap-4">
+                <button
+                  type="button"
+                  onClick={handleBack}
+                  className="btn-secondary flex items-center"
+                >
+                  Voltar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {loading ? 'Agendando...' : 'Continuar para Pagamento'}
+                </button>
               </div>
+            </form>
+          ) : (
+            <div className="space-y-6">
+              <div className="bg-green-50 border-2 border-green-200 rounded-lg p-4">
+                <h3 className="text-lg font-semibold text-green-800 mb-2">Agendamento Criado!</h3>
+                <p className="text-green-700 text-sm">
+                  Agora você precisa realizar o pagamento para confirmar seu agendamento.
+                </p>
+              </div>
+
+              <PaymentForm
+                appointment={createdAppointment}
+                onSuccess={() => {
+                  onSuccess()
+                }}
+                onCancel={() => {
+                  setCreatedAppointment(null)
+                  setStep(1)
+                }}
+              />
             </div>
-          </div>
-
-          {/* Observações */}
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
-              Observações (opcional)
-            </label>
-            <textarea
-              name="notes"
-              value={formData.notes}
-              onChange={handleChange}
-              rows={4}
-              className="input-field w-full"
-              placeholder="Alguma observação ou informação adicional que gostaria de compartilhar..."
-            />
-          </div>
-
-          {/* Botões */}
-          <div className="flex gap-4">
-            <button
-              type="button"
-              onClick={handleBack}
-              className="btn-secondary flex items-center"
-            >
-              Voltar
-            </button>
-            <button
-              type="submit"
-              disabled={loading}
-              className="btn-primary flex-1 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {loading ? 'Agendando...' : 'Confirmar Agendamento'}
-            </button>
-          </div>
-        </form>
+          )}
+        </>
       )}
     </div>
   )

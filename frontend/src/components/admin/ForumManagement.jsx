@@ -199,10 +199,10 @@ const ForumManagement = () => {
                     ) : (
                       <span className="flex items-center gap-1">
                         <User size={14} />
-                        {post.user?.full_name || 'Usuário'}
+                        {post.user?.nome_completo || 'Usuário'}
                       </span>
                     )}
-                    <span>{formatDate(post.created_at)}</span>
+                    <span>{formatDate(post.criado_em)}</span>
                     <span className="flex items-center gap-1">
                       <Eye size={14} />
                       {post.views} visualizações

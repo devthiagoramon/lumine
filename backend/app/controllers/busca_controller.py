@@ -2,6 +2,7 @@
 Search Controller - Endpoints de busca
 """
 from fastapi import APIRouter, Query
+from fastapi.responses import JSONResponse
 from typing import List, Optional
 from app.schemas import SearchResponse, SpecialtyResponse, ApproachResponse
 from app.models.especialidade import Specialty
@@ -42,15 +43,29 @@ def buscar_psicologos(
     )
     return result
 
-@router.get("/specialties", response_model=List[SpecialtyResponse])
+@router.get("/specialties")
 def obter_especialidades():
     """Listar especialidades"""
     specialties = Specialty.listar_todos()
-    return specialties
+    # Serializar manualmente para garantir que use os nomes dos campos (não os aliases)
+    try:
+        response_objs = [SpecialtyResponse.model_validate(s) for s in specialties]
+        serialized = [obj.model_dump(by_alias=False) for obj in response_objs]
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        # Se houver erro, tentar serialização normal
+        return specialties
 
-@router.get("/approaches", response_model=List[ApproachResponse])
+@router.get("/approaches")
 def obter_abordagens():
     """Listar abordagens"""
     approaches = Approach.listar_todos()
-    return approaches
+    # Serializar manualmente para garantir que use os nomes dos campos (não os aliases)
+    try:
+        response_objs = [ApproachResponse.model_validate(a) for a in approaches]
+        serialized = [obj.model_dump(by_alias=False) for obj in response_objs]
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        # Se houver erro, tentar serialização normal
+        return approaches
 

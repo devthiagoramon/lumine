@@ -1,7 +1,7 @@
 """
 Auth Schemas
 """
-from pydantic import BaseModel, EmailStr
+from pydantic import BaseModel, EmailStr, Field
 from typing import Optional
 from datetime import datetime
 
@@ -26,13 +26,14 @@ class UserCreate(BaseModel):
 class UserResponse(BaseModel):
     id: int
     email: str
-    full_name: str
-    phone: Optional[str]
-    is_active: bool
-    is_psychologist: bool
-    is_admin: bool
-    created_at: datetime
+    nome_completo: str
+    telefone: Optional[str] = None
+    esta_ativo: bool = Field(alias="esta_ativo")
+    eh_psicologo: bool = Field(alias="eh_psicologo")
+    eh_admin: bool = Field(alias="eh_admin")
+    criado_em: datetime = Field(alias="criado_em")
     
     class Config:
         from_attributes = True
+        populate_by_name = True
 

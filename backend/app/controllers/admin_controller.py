@@ -2,6 +2,7 @@
 Admin Controller - Endpoints administrativos
 """
 from fastapi import APIRouter, Depends, HTTPException, status, Query
+from fastapi.responses import JSONResponse
 from typing import List, Optional
 from app import auth
 from app.schemas import (
@@ -21,78 +22,156 @@ router = APIRouter()
 
 # ========== ROTAS PARA VALIDAÇÃO DE PSICÓLOGOS ==========
 
-@router.get("/psychologists/pending", response_model=List[PsychologistResponse])
+@router.get("/psychologists/pending")
 def listar_psicologos_pendentes(
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Lista todos os psicólogos pendentes de validação"""
     psychologists = Psychologist.listar_pendentes()
-    return psychologists
+    
+    # Serializar manualmente para garantir que os campos sejam retornados com nomes em inglês
+    try:
+        # Pydantic v2
+        serialized = [
+            PsychologistResponse.model_validate(p).model_dump(by_alias=False, mode='json')
+            for p in psychologists
+        ]
+    except AttributeError:
+        # Pydantic v1 fallback
+        serialized = [
+            PsychologistResponse.from_orm(p).dict(by_alias=False)
+            for p in psychologists
+        ]
+    
+    return JSONResponse(content=serialized)
 
-@router.put("/psychologists/{id_psicologo}/verify", response_model=PsychologistResponse)
+@router.put("/psychologists/{id_psicologo}/verify")
 def verificar_psicologo(
     id_psicologo: int,
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Valida o cadastro de um psicólogo"""
-    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
-    
-    if not psychologist:
+    try:
+        psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
+        
+        if not psychologist:
+            raise HTTPException(
+                status_code=404,
+                detail="Psicólogo não encontrado"
+            )
+        
+        # Guardar user_id antes de atualizar (caso a sessão seja fechada)
+        user_id = psychologist.id_usuario
+        
+        psychologist.atualizar(esta_verificado=True)
+        
+        # Criar notificação para o psicólogo
+        try:
+            Notification.criar(
+                user_id=user_id,
+                title="Cadastro Verificado",
+                message="Seu cadastro foi verificado e aprovado pela administração.",
+                type="system",
+                related_id=id_psicologo,
+                related_type="psychologist",
+                is_read=False
+            )
+        except Exception as e:
+            # Log do erro mas não falhar a operação
+            print(f"Erro ao criar notificação: {e}")
+        
+        # Recarregar com relacionamentos
+        psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
+        
+        # Serializar manualmente para garantir que os campos sejam retornados com nomes em inglês
+        try:
+            # Pydantic v2
+            response_obj = PsychologistResponse.model_validate(psychologist)
+            serialized = response_obj.model_dump(by_alias=False, mode='json')
+        except AttributeError:
+            # Pydantic v1 fallback
+            response_obj = PsychologistResponse.from_orm(psychologist)
+            serialized = response_obj.dict(by_alias=False)
+        
+        return JSONResponse(content=serialized)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
-            status_code=404,
-            detail="Psicólogo não encontrado"
+            status_code=500,
+            detail=f"Erro ao verificar psicólogo: {str(e)}"
         )
-    
-    psychologist.atualizar(is_verified=True)
-    
-    # Criar notificação para o psicólogo
-    Notification.criar(
-        user_id=psychologist.user_id,
-        title="Cadastro Verificado",
-        message="Seu cadastro foi verificado e aprovado pela administração.",
-        type="system",
-        related_id=psychologist.id,
-        related_type="psychologist",
-        is_read=False
-    )
-    
-    # Recarregar com relacionamentos
-    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
-    
-    return psychologist
 
-@router.put("/psychologists/{id_psicologo}/unverify", response_model=PsychologistResponse)
+@router.put("/psychologists/{id_psicologo}/unverify")
 def desverificar_psicologo(
     id_psicologo: int,
     motivo: str = Query(..., min_length=5, description="Motivo da desvalidação"),
     usuario_atual: User = Depends(auth.get_current_admin)
 ):
     """Remove a validação de um psicólogo"""
-    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
-    
-    if not psychologist:
+    try:
+        psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
+        
+        if not psychologist:
+            raise HTTPException(
+                status_code=404,
+                detail="Psicólogo não encontrado"
+            )
+        
+        # Guardar user_id antes de atualizar (caso a sessão seja fechada)
+        user_id = psychologist.id_usuario
+        
+        # Verificar se é uma rejeição (nunca foi verificado) ou remoção de validação (já foi verificado antes)
+        is_rejection = not psychologist.esta_verificado
+        
+        # Atualizar campos
+        update_data = {'esta_verificado': False}
+        if is_rejection:
+            # Se o campo rejeitado existir, marcar como rejeitado
+            update_data['rejeitado'] = True
+        
+        psychologist.atualizar(**update_data)
+        
+        # Criar notificação para o psicólogo
+        try:
+            Notification.criar(
+                user_id=user_id,
+                title="Cadastro Desverificado",
+                message=f"Seu cadastro foi desverificado pela administração. Motivo: {motivo}",
+                type="system",
+                related_id=id_psicologo,
+                related_type="psychologist",
+                is_read=False
+            )
+        except Exception as e:
+            # Log do erro mas não falhar a operação
+            print(f"Erro ao criar notificação: {e}")
+        
+        # Recarregar com relacionamentos
+        psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
+        
+        # Serializar manualmente para garantir que os campos sejam retornados com nomes em inglês
+        try:
+            # Pydantic v2
+            response_obj = PsychologistResponse.model_validate(psychologist)
+            serialized = response_obj.model_dump(by_alias=False, mode='json')
+        except AttributeError:
+            # Pydantic v1 fallback
+            response_obj = PsychologistResponse.from_orm(psychologist)
+            serialized = response_obj.dict(by_alias=False)
+        
+        return JSONResponse(content=serialized)
+    except HTTPException:
+        raise
+    except Exception as e:
+        import traceback
+        traceback.print_exc()
         raise HTTPException(
-            status_code=404,
-            detail="Psicólogo não encontrado"
+            status_code=500,
+            detail=f"Erro ao desverificar psicólogo: {str(e)}"
         )
-    
-    psychologist.atualizar(is_verified=False)
-    
-    # Criar notificação para o psicólogo
-    Notification.criar(
-        user_id=psychologist.user_id,
-        title="Cadastro Desverificado",
-        message=f"Seu cadastro foi desverificado pela administração. Motivo: {motivo}",
-        type="system",
-        related_id=psychologist.id,
-        related_type="psychologist",
-        is_read=False
-    )
-    
-    # Recarregar com relacionamentos
-    psychologist = Psychologist.obter_por_id(id_psicologo, carregar_relacionamentos=True)
-    
-    return psychologist
 
 # ========== ROTAS PARA GERENCIAMENTO DE FÓRUNS ==========
 

@@ -3,7 +3,7 @@ import { useAuth } from '../contexts/AuthContext'
 import { useToast } from '../contexts/ToastContext'
 import { useNavigate, Link } from 'react-router-dom'
 import axios from 'axios'
-import { Calendar, Heart, Star, Clock, CheckCircle, XCircle, Plus, Search, CreditCard, DollarSign } from 'lucide-react'
+import { Calendar, Heart, Star, Clock, CheckCircle, XCircle, Plus, Search, CreditCard, DollarSign, AlertTriangle } from 'lucide-react'
 import PaymentForm from '../components/PaymentForm'
 
 const ClientDashboard = () => {
@@ -16,11 +16,12 @@ const ClientDashboard = () => {
   const [activeTab, setActiveTab] = useState('appointments')
   const [showPaymentForm, setShowPaymentForm] = useState(false)
   const [selectedAppointment, setSelectedAppointment] = useState(null)
+  const [cancelConfirm, setCancelConfirm] = useState(null)
 
   useEffect(() => {
     if (!authLoading && !user) {
       navigate('/login')
-    } else if (user && user.is_psychologist) {
+    } else if (user && user.eh_psicologo) {
       navigate('/dashboard')
     } else if (user) {
       fetchData()
@@ -34,10 +35,20 @@ const ClientDashboard = () => {
         axios.get('/api/favorites/')
       ])
       
+      console.log('📅 DEBUG: Agendamentos recebidos:', appointmentsRes.data)
+      console.log('📅 DEBUG: Número de agendamentos:', appointmentsRes.data?.length || 0)
+      if (appointmentsRes.data && appointmentsRes.data.length > 0) {
+        console.log('📅 DEBUG: Primeiro agendamento:', appointmentsRes.data[0])
+        console.log('📅 DEBUG: appointment_date do primeiro:', appointmentsRes.data[0].appointment_date)
+        console.log('📅 DEBUG: status do primeiro:', appointmentsRes.data[0].status)
+        console.log('📅 DEBUG: payment_status do primeiro:', appointmentsRes.data[0].payment_status)
+      }
+      
       setAppointments(appointmentsRes.data || [])
       setFavorites(favoritesRes.data || [])
     } catch (error) {
       console.error('Erro ao carregar dados:', error)
+      console.error('Detalhes do erro:', error.response?.data)
       setAppointments([])
       setFavorites([])
       if (error.response?.status === 401) {
@@ -58,12 +69,9 @@ const ClientDashboard = () => {
   }
 
   const handleCancelAppointment = async (appointmentId) => {
-    if (!window.confirm('Tem certeza que deseja cancelar este agendamento?')) {
-      return
-    }
-    
     try {
       await axios.delete(`/api/appointments/${appointmentId}`)
+      setCancelConfirm(null)
       fetchData()
       success('Agendamento cancelado com sucesso')
     } catch (error) {
@@ -115,15 +123,40 @@ const ClientDashboard = () => {
     )
   }
 
-  const upcomingAppointments = (appointments || []).filter(a => 
-    a && a.appointment_date &&
-    new Date(a.appointment_date) > new Date() && 
-    (a.status === 'pending' || a.status === 'confirmed')
-  )
-  const pastAppointments = (appointments || []).filter(a => 
-    a && a.appointment_date &&
-    (new Date(a.appointment_date) < new Date() || a.status === 'completed')
-  )
+  const upcomingAppointments = (appointments || []).filter(a => {
+    if (!a || !a.appointment_date) {
+      console.log('⚠️ DEBUG: Agendamento sem appointment_date:', a)
+      return false
+    }
+    const appointmentDate = new Date(a.appointment_date)
+    const now = new Date()
+    const isFuture = appointmentDate > now
+    // Incluir agendamentos confirmados e pendentes (pendentes ainda não pagos)
+    const isValidStatus = a.status === 'confirmed' || a.status === 'pending'
+    const result = isFuture && isValidStatus
+    if (result) {
+      console.log('✅ DEBUG: Agendamento futuro encontrado:', {
+        id: a.id,
+        date: a.appointment_date,
+        status: a.status,
+        appointmentDate: appointmentDate.toISOString(),
+        now: now.toISOString()
+      })
+    }
+    return result
+  })
+  const pastAppointments = (appointments || []).filter(a => {
+    if (!a || !a.appointment_date) {
+      return false
+    }
+    const appointmentDate = new Date(a.appointment_date)
+    const now = new Date()
+    return appointmentDate < now || a.status === 'completed'
+  })
+  
+  console.log('📊 DEBUG: Total de agendamentos:', appointments?.length || 0)
+  console.log('📊 DEBUG: Próximos agendamentos:', upcomingAppointments.length)
+  console.log('📊 DEBUG: Agendamentos anteriores:', pastAppointments.length)
 
   return (
     <div className="min-h-screen bg-gray-50 py-8">
@@ -213,13 +246,13 @@ const ClientDashboard = () => {
                                 to={`/psicologo/${appointment.psychologist?.id || ''}`}
                                 className="text-lg font-semibold text-primary-600 hover:text-primary-700"
                               >
-                                {appointment.psychologist?.user?.full_name || 'Psicólogo não encontrado'}
+                                {appointment.psychologist?.user?.nome_completo || 'Psicólogo não encontrado'}
                               </Link>
                           <span className={`px-2 py-1 rounded text-xs font-medium ${
                             appointment.status === 'pending' ? 'bg-yellow-100 text-yellow-800' :
                             'bg-green-100 text-green-800'
                           }`}>
-                            {appointment.status === 'pending' ? 'Pendente' : 'Confirmado'}
+                            {appointment.status === 'pending' ? 'Aguardando Pagamento' : 'Confirmado'}
                           </span>
                           {appointment.payment_status === 'pending' && (
                             <span className="px-2 py-1 rounded text-xs font-medium bg-orange-100 text-orange-800">
@@ -251,7 +284,7 @@ const ClientDashboard = () => {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        {appointment.status === 'confirmed' && appointment.payment_status === 'pending' && (
+                        {appointment.status === 'pending' && (
                           <button
                             onClick={() => handlePayAppointment(appointment)}
                             className="btn-primary text-sm px-4 py-2 flex items-center justify-center"
@@ -260,10 +293,14 @@ const ClientDashboard = () => {
                             Pagar Agora
                           </button>
                         )}
-                        {appointment.status === 'pending' && (
-                          <span className="text-sm text-yellow-600 font-medium px-4 py-2 text-center">
-                            Aguardando confirmação do psicólogo
-                          </span>
+                        {appointment.status === 'confirmed' && appointment.payment_status === 'pending' && (
+                          <button
+                            onClick={() => handlePayAppointment(appointment)}
+                            className="btn-primary text-sm px-4 py-2 flex items-center justify-center"
+                          >
+                            <CreditCard className="mr-2" size={16} />
+                            Pagar Agora
+                          </button>
                         )}
                         {appointment.status === 'rejected' && (
                           <div className="text-sm text-red-600 px-4 py-2">
@@ -275,7 +312,7 @@ const ClientDashboard = () => {
                         )}
                         {appointment.status !== 'rejected' && appointment.status !== 'completed' && (
                           <button
-                            onClick={() => handleCancelAppointment(appointment.id)}
+                            onClick={() => setCancelConfirm(appointment)}
                             className="btn-secondary text-sm px-4 py-2"
                           >
                             Cancelar
@@ -303,7 +340,7 @@ const ClientDashboard = () => {
                                 to={`/psicologo/${appointment.psychologist?.id || ''}`}
                                 className="text-lg font-semibold text-gray-700"
                               >
-                                {appointment.psychologist?.user?.full_name || 'Psicólogo não encontrado'}
+                                {appointment.psychologist?.user?.nome_completo || 'Psicólogo não encontrado'}
                               </Link>
                               <span className={`px-2 py-1 rounded text-xs font-medium ${
                                 appointment.status === 'completed' ? 'bg-blue-100 text-blue-800' :
@@ -365,7 +402,7 @@ const ClientDashboard = () => {
                           className="flex-1"
                         >
                           <h3 className="font-semibold text-gray-900 hover:text-primary-600">
-                            {psychologist.user?.full_name || 'Nome não disponível'}
+                            {psychologist.user?.nome_completo || 'Nome não disponível'}
                           </h3>
                           <p className="text-sm text-gray-600">CRP: {psychologist.crp || 'N/A'}</p>
                         </Link>
@@ -417,6 +454,51 @@ const ClientDashboard = () => {
                     setSelectedAppointment(null)
                   }}
                 />
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Cancel Confirmation Modal */}
+        {cancelConfirm && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-lg max-w-md w-full p-6 shadow-xl">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="p-2 bg-orange-100 rounded-full">
+                  <AlertTriangle className="text-orange-600" size={24} />
+                </div>
+                <h3 className="text-xl font-bold text-gray-900">Cancelar Agendamento</h3>
+              </div>
+              <p className="text-gray-600 mb-2">
+                Tem certeza que deseja cancelar este agendamento?
+              </p>
+              {cancelConfirm.psychologist?.user?.nome_completo && (
+                <div className="bg-gray-50 rounded-lg p-3 mb-4">
+                  <p className="text-sm text-gray-700">
+                    <span className="font-medium">Psicólogo:</span> {cancelConfirm.psychologist.user.nome_completo}
+                  </p>
+                  <p className="text-sm text-gray-700 mt-1">
+                    <span className="font-medium">Data:</span> {formatDate(cancelConfirm.appointment_date)}
+                  </p>
+                </div>
+              )}
+              <p className="text-sm text-orange-600 mb-6">
+                ⚠️ Esta ação não pode ser desfeita. O psicólogo será notificado sobre o cancelamento.
+              </p>
+              <div className="flex gap-4">
+                <button
+                  onClick={() => handleCancelAppointment(cancelConfirm.id)}
+                  className="btn-primary flex-1 bg-orange-600 hover:bg-orange-700 flex items-center justify-center"
+                >
+                  <XCircle className="mr-2" size={18} />
+                  Confirmar Cancelamento
+                </button>
+                <button
+                  onClick={() => setCancelConfirm(null)}
+                  className="btn-secondary flex-1"
+                >
+                  Voltar
+                </button>
               </div>
             </div>
           </div>

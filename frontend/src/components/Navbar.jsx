@@ -42,7 +42,7 @@ const Navbar = () => {
             >
               Fórum
             </Link>
-            {user && !user.is_psychologist && (
+            {user && !user.eh_psicologo && (
               <>
                 <Link
                   to="/diario"
@@ -59,7 +59,7 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-            {user && user.is_psychologist && (
+            {user && user.eh_psicologo && (
               <Link
                 to="/historico-financeiro"
                 className="text-gray-700 hover:text-primary-600 transition-colors flex items-center gap-1"
@@ -68,7 +68,7 @@ const Navbar = () => {
                 <span>Financeiro</span>
               </Link>
             )}
-            {user && user.is_admin && (
+            {user && user.eh_admin && (
               <Link
                 to="/admin"
                 className="text-gray-700 hover:text-primary-600 transition-colors flex items-center gap-1"
@@ -85,7 +85,7 @@ const Navbar = () => {
                   className="flex items-center space-x-1 text-gray-700 hover:text-primary-600 transition-colors"
                 >
                   <User size={18} />
-                  <span>{user.full_name}</span>
+                  <span>{user.nome_completo}</span>
                 </Link>
                 <button
                   onClick={handleLogout}
@@ -139,7 +139,7 @@ const Navbar = () => {
             >
               Fórum
             </Link>
-            {user && !user.is_psychologist && (
+            {user && !user.eh_psicologo && (
               <>
                 <Link
                   to="/diario"
@@ -157,7 +157,7 @@ const Navbar = () => {
                 </Link>
               </>
             )}
-            {user && user.is_psychologist && (
+            {user && user.eh_psicologo && (
               <Link
                 to="/historico-financeiro"
                 className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"
@@ -166,7 +166,7 @@ const Navbar = () => {
                 Histórico Financeiro
               </Link>
             )}
-            {user && user.is_admin && (
+            {user && user.eh_admin && (
               <Link
                 to="/admin"
                 className="block px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg"

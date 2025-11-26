@@ -263,7 +263,7 @@ const Payments = () => {
                       <div className="flex items-center gap-3 mb-2">
                         <User className="text-gray-600" size={20} />
                         <h3 className="font-semibold text-gray-900">
-                          {appointment.psychologist?.user?.full_name || 'Psicólogo'}
+                          {appointment.psychologist?.user?.nome_completo || 'Psicólogo'}
                         </h3>
                       </div>
                       <div className="flex items-center gap-3 mb-2 text-sm text-gray-600">
@@ -433,14 +433,14 @@ const Payments = () => {
                       <td className="py-4 px-4 text-sm text-gray-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {new Date(payment.created_at).toLocaleDateString('pt-BR', {
+                            {new Date(payment.criado_em).toLocaleDateString('pt-BR', {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric'
                             })}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {new Date(payment.created_at).toLocaleTimeString('pt-BR', {
+                            {new Date(payment.criado_em).toLocaleTimeString('pt-BR', {
                               hour: '2-digit',
                               minute: '2-digit'
                             })}
@@ -450,7 +450,7 @@ const Payments = () => {
                       <td className="py-4 px-4">
                         <div className="flex flex-col">
                           <span className="text-sm font-medium text-gray-900">
-                            Consulta com {payment.appointment?.psychologist?.user?.full_name || 'Psicólogo'}
+                            Consulta com {payment.appointment?.psychologist?.user?.nome_completo || 'Psicólogo'}
                           </span>
                           <span className="text-xs text-gray-500 mt-1">
                             {payment.appointment?.appointment_date && 

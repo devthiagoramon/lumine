@@ -34,7 +34,7 @@ try:
     db.query(Appointment).delete()
     db.query(Review).delete()
     db.query(Psychologist).delete()
-    db.query(User).filter(User.is_admin == False).delete()
+    db.query(User).filter(User.eh_admin == False).delete()
     db.query(Approach).delete()
     db.query(Specialty).delete()
     db.commit()
@@ -42,16 +42,16 @@ try:
     # ========== ESPECIALIDADES ==========
     print("[*] Criando especialidades...")
     specialties_data = [
-        {"name": "Ansiedade", "description": "Tratamento de transtornos de ansiedade"},
-        {"name": "Depressão", "description": "Tratamento de depressão e transtornos do humor"},
-        {"name": "TDAH", "description": "Transtorno de Déficit de Atenção e Hiperatividade"},
-        {"name": "TOC", "description": "Transtorno Obsessivo Compulsivo"},
-        {"name": "Trauma", "description": "Tratamento de traumas e TEPT"},
-        {"name": "Relacionamentos", "description": "Terapia de casal e relacionamentos"},
-        {"name": "Autoestima", "description": "Desenvolvimento pessoal e autoestima"},
-        {"name": "Luto", "description": "Processamento de luto e perdas"},
-        {"name": "Estresse", "description": "Gerenciamento de estresse"},
-        {"name": "Infantil", "description": "Psicologia infantil"},
+        {"nome": "Ansiedade", "descricao": "Tratamento de transtornos de ansiedade"},
+        {"nome": "Depressão", "descricao": "Tratamento de depressão e transtornos do humor"},
+        {"nome": "TDAH", "descricao": "Transtorno de Déficit de Atenção e Hiperatividade"},
+        {"nome": "TOC", "descricao": "Transtorno Obsessivo Compulsivo"},
+        {"nome": "Trauma", "descricao": "Tratamento de traumas e TEPT"},
+        {"nome": "Relacionamentos", "descricao": "Terapia de casal e relacionamentos"},
+        {"nome": "Autoestima", "descricao": "Desenvolvimento pessoal e autoestima"},
+        {"nome": "Luto", "descricao": "Processamento de luto e perdas"},
+        {"nome": "Estresse", "descricao": "Gerenciamento de estresse"},
+        {"nome": "Infantil", "descricao": "Psicologia infantil"},
     ]
     
     specialties = []
@@ -65,14 +65,14 @@ try:
     # ========== ABORDAGENS ==========
     print("[*] Criando abordagens...")
     approaches_data = [
-        {"name": "TCC", "description": "Terapia Cognitivo-Comportamental"},
-        {"name": "Psicanálise", "description": "Abordagem psicanalítica"},
-        {"name": "Humanista", "description": "Abordagem humanista"},
-        {"name": "Gestalt", "description": "Terapia Gestalt"},
-        {"name": "Comportamental", "description": "Análise do Comportamento"},
-        {"name": "Sistêmica", "description": "Terapia Sistêmica"},
-        {"name": "Fenomenológica", "description": "Abordagem fenomenológica"},
-        {"name": "Integrativa", "description": "Abordagem integrativa"},
+        {"nome": "TCC", "descricao": "Terapia Cognitivo-Comportamental"},
+        {"nome": "Psicanálise", "descricao": "Abordagem psicanalítica"},
+        {"nome": "Humanista", "descricao": "Abordagem humanista"},
+        {"nome": "Gestalt", "descricao": "Terapia Gestalt"},
+        {"nome": "Comportamental", "descricao": "Análise do Comportamento"},
+        {"nome": "Sistêmica", "descricao": "Terapia Sistêmica"},
+        {"nome": "Fenomenológica", "descricao": "Abordagem fenomenológica"},
+        {"nome": "Integrativa", "descricao": "Abordagem integrativa"},
     ]
     
     approaches = []
@@ -203,32 +203,32 @@ try:
         # Criar usuário
         user = User(
             email=psych_data["email"],
-            hashed_password=get_password_hash("senha123"),
-            full_name=psych_data["full_name"],
-            phone=psych_data["phone"],
-            is_psychologist=True,
-            is_active=True,
-            is_admin=False
+            senha_hash=get_password_hash("senha123"),
+            nome_completo=psych_data["full_name"],
+            telefone=psych_data["phone"],
+            eh_psicologo=True,
+            esta_ativo=True,
+            eh_admin=False
         )
         db.add(user)
         db.flush()
         
         # Criar perfil de psicólogo
         psychologist = Psychologist(
-            user_id=user.id,
+            id_usuario=user.id,
             crp=psych_data["crp"],
-            bio=psych_data["bio"],
-            experience_years=psych_data["experience_years"],
-            consultation_price=psych_data["consultation_price"],
-            online_consultation=psych_data["online_consultation"],
-            in_person_consultation=psych_data["in_person_consultation"],
-            address=psych_data.get("address"),
-            city=psych_data.get("city"),
-            state=psych_data.get("state"),
-            zip_code=psych_data.get("zip_code"),
-            is_verified=psych_data.get("is_verified", False),
-            rating=round(random.uniform(4.0, 5.0), 1),
-            total_reviews=random.randint(5, 50)
+            biografia=psych_data["bio"],
+            anos_experiencia=psych_data["experience_years"],
+            preco_consulta=psych_data["consultation_price"],
+            consulta_online=psych_data["online_consultation"],
+            consulta_presencial=psych_data["in_person_consultation"],
+            endereco=psych_data.get("address"),
+            cidade=psych_data.get("city"),
+            estado=psych_data.get("state"),
+            cep=psych_data.get("zip_code"),
+            esta_verificado=psych_data.get("is_verified", False),
+            avaliacao=round(random.uniform(4.0, 5.0), 1),
+            total_avaliacoes=random.randint(5, 50)
         )
         db.add(psychologist)
         db.flush()
@@ -260,12 +260,12 @@ try:
     for client_data in clients_data:
         user = User(
             email=client_data["email"],
-            hashed_password=get_password_hash("senha123"),
-            full_name=client_data["full_name"],
-            phone=client_data["phone"],
-            is_psychologist=False,
-            is_active=True,
-            is_admin=False
+            senha_hash=get_password_hash("senha123"),
+            nome_completo=client_data["full_name"],
+            telefone=client_data["phone"],
+            eh_psicologo=False,
+            esta_ativo=True,
+            eh_admin=False
         )
         db.add(user)
         clients.append(user)
@@ -292,10 +292,10 @@ try:
         for _ in range(num_reviews):
             client = random.choice(clients)
             review = Review(
-                psychologist_id=psychologist.id,
-                user_id=client.id,
-                rating=random.randint(4, 5),
-                comment=random.choice(review_comments)
+                id_psicologo=psychologist.id,
+                id_usuario=client.id,
+                avaliacao=random.randint(4, 5),
+                comentario=random.choice(review_comments)
             )
             db.add(review)
             reviews_created += 1
@@ -305,15 +305,15 @@ try:
     
     # Atualizar ratings dos psicólogos
     for psychologist in psychologists:
-        avg_rating = db.query(func.avg(Review.rating)).filter(
-            Review.psychologist_id == psychologist.id
+        avg_rating = db.query(func.avg(Review.avaliacao)).filter(
+            Review.id_psicologo == psychologist.id
         ).scalar()
         total_reviews = db.query(func.count(Review.id)).filter(
-            Review.psychologist_id == psychologist.id
+            Review.id_psicologo == psychologist.id
         ).scalar()
         if avg_rating:
-            psychologist.rating = round(float(avg_rating), 1)
-            psychologist.total_reviews = total_reviews
+            psychologist.avaliacao = round(float(avg_rating), 1)
+            psychologist.total_avaliacoes = total_reviews
     
     db.commit()
     
@@ -326,12 +326,12 @@ try:
         appointment_date = datetime.now() + timedelta(days=random.randint(1, 30), hours=random.randint(9, 18))
         
         appointment = Appointment(
-            psychologist_id=psychologist.id,
-            user_id=client.id,
-            appointment_date=appointment_date,
-            appointment_type=random.choice(["online", "presencial"]),
+            id_psicologo=psychologist.id,
+            id_usuario=client.id,
+            data_agendamento=appointment_date,
+            tipo_agendamento=random.choice(["online", "presencial"]),
             status=random.choice(["pending", "confirmed", "completed"]),
-            notes=f"Consulta agendada para {appointment_date.strftime('%d/%m/%Y %H:%M')}"
+            observacoes=f"Consulta agendada para {appointment_date.strftime('%d/%m/%Y %H:%M')}"
         )
         db.add(appointment)
         appointments_created += 1
@@ -345,19 +345,19 @@ try:
     payments_created = 0
     
     for appointment in appointments[:10]:  # Pagar apenas alguns
-        psychologist = db.query(Psychologist).filter(Psychologist.id == appointment.psychologist_id).first()
-        if psychologist and psychologist.consultation_price:
+        psychologist = db.query(Psychologist).filter(Psychologist.id == appointment.id_psicologo).first()
+        if psychologist and psychologist.preco_consulta:
             payment = Payment(
-                appointment_id=appointment.id,
-                user_id=appointment.user_id,
-                amount=psychologist.consultation_price,
-                payment_method=random.choice(["credit_card", "debit_card", "pix"]),
+                id_agendamento=appointment.id,
+                id_usuario=appointment.id_usuario,
+                valor=psychologist.preco_consulta,
+                metodo_pagamento=random.choice(["credit_card", "debit_card", "pix"]),
                 status="paid",
-                payment_id=f"PAY-{random.randint(100000, 999999)}",
-                transaction_id=f"TXN-{random.randint(100000, 999999)}"
+                id_pagamento=f"PAY-{random.randint(100000, 999999)}",
+                id_transacao=f"TXN-{random.randint(100000, 999999)}"
             )
             db.add(payment)
-            appointment.payment_status = "paid"
+            appointment.status_pagamento = "paid"
             payments_created += 1
     
     db.commit()
@@ -379,11 +379,11 @@ try:
         for day in available_days:
             start_time, end_time = random.choice(time_slots)
             availability = PsychologistAvailability(
-                psychologist_id=psychologist.id,
-                day_of_week=day,
-                start_time=start_time,
-                end_time=end_time,
-                is_available=True
+                id_psicologo=psychologist.id,
+                dia_da_semana=day,
+                horario_inicio=start_time,
+                horario_fim=end_time,
+                esta_disponivel=True
             )
             db.add(availability)
             availability_created += 1
@@ -424,13 +424,13 @@ try:
     for post_data in forum_posts_data:
         author = random.choice(clients)
         post = ForumPost(
-            user_id=author.id,
-            title=post_data["title"],
-            content=post_data["content"],
-            category=post_data["category"],
-            is_anonymous=post_data["is_anonymous"],
-            views=random.randint(10, 100),
-            likes=random.randint(0, 20)
+            id_usuario=author.id,
+            titulo=post_data["title"],
+            conteudo=post_data["content"],
+            categoria=post_data["category"],
+            eh_anonimo=post_data["is_anonymous"],
+            visualizacoes=random.randint(10, 100),
+            curtidas=random.randint(0, 20)
         )
         db.add(post)
         posts_created += 1
@@ -448,16 +448,16 @@ try:
         for _ in range(num_comments):
             commenter = random.choice(clients + [p.user for p in psychologists])
             comment = ForumComment(
-                post_id=post.id,
-                user_id=commenter.id,
-                content=random.choice([
+                id_post=post.id,
+                id_usuario=commenter.id,
+                conteudo=random.choice([
                     "Obrigado por compartilhar! Isso me ajudou muito.",
                     "Também passo por isso, você não está sozinho.",
                     "Recomendo procurar ajuda profissional.",
                     "Excelente post, muito útil!",
                 ]),
-                is_anonymous=random.choice([True, False]),
-                likes=random.randint(0, 10)
+                eh_anonimo=random.choice([True, False]),
+                curtidas=random.randint(0, 10)
             )
             db.add(comment)
             comments_created += 1
@@ -474,11 +474,11 @@ try:
         for i in range(random.randint(5, 15)):
             entry_date = datetime.now() - timedelta(days=random.randint(0, 30))
             entry = EmotionDiary(
-                user_id=client.id,
-                date=entry_date,
-                emotion=random.choice(emotions),
-                intensity=random.randint(1, 10),
-                notes=random.choice([
+                id_usuario=client.id,
+                data=entry_date,
+                emocao=random.choice(emotions),
+                intensidade=random.randint(1, 10),
+                notas=random.choice([
                     "Dia produtivo no trabalho",
                     "Sentindo-me um pouco sobrecarregado",
                     "Momento de reflexão importante",
@@ -517,11 +517,11 @@ try:
     if not existing_admin:
         admin_user = User(
             email=admin_email,
-            hashed_password=get_password_hash("admin123"),
-            full_name="Administrador",
-            is_admin=True,
-            is_psychologist=False,
-            is_active=True
+            senha_hash=get_password_hash("admin123"),
+            nome_completo="Administrador",
+            eh_admin=True,
+            eh_psicologo=False,
+            esta_ativo=True
         )
         db.add(admin_user)
         db.commit()

@@ -1,7 +1,7 @@
 """
 Payment Schemas
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -15,16 +15,17 @@ class PaymentCreate(BaseModel):
 
 class PaymentResponse(BaseModel):
     id: int
-    appointment_id: int
-    user_id: int
-    amount: float
-    payment_method: str
+    appointment_id: int = Field(alias="id_agendamento", serialization_alias="appointment_id")
+    user_id: int = Field(alias="id_usuario", serialization_alias="user_id")
+    amount: float = Field(alias="valor", serialization_alias="amount")
+    payment_method: str = Field(alias="metodo_pagamento", serialization_alias="payment_method")
     status: str
-    payment_id: str
-    transaction_id: Optional[str]
-    created_at: datetime
-    updated_at: Optional[datetime]
+    payment_id: str = Field(alias="id_pagamento", serialization_alias="payment_id")
+    transaction_id: Optional[str] = Field(default=None, alias="id_transacao", serialization_alias="transaction_id")
+    created_at: datetime = Field(alias="criado_em", serialization_alias="created_at")
+    updated_at: Optional[datetime] = Field(default=None, alias="atualizado_em", serialization_alias="updated_at")
     
     class Config:
         from_attributes = True
+        populate_by_name = True
 

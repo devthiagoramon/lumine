@@ -217,10 +217,10 @@ const Forum = () => {
                       ) : (
                         <span className="flex items-center">
                           <User className="mr-1" size={16} />
-                          {post.user?.full_name || 'Usuário'}
+                          {post.user?.nome_completo || 'Usuário'}
                         </span>
                       )}
-                      <span>{formatDate(post.created_at)}</span>
+                      <span>{formatDate(post.criado_em)}</span>
                       <span className="flex items-center">
                         <Eye className="mr-1" size={16} />
                         {post.views}
@@ -267,11 +267,11 @@ const Forum = () => {
                               </span>
                             ) : (
                               <span className="text-sm font-medium text-gray-700">
-                                {comment.user?.full_name || 'Usuário'}
+                                {comment.user?.nome_completo || 'Usuário'}
                               </span>
                             )}
                             <span className="text-xs text-gray-500">
-                              {formatDate(comment.created_at)}
+                              {formatDate(comment.criado_em)}
                             </span>
                           </div>
                           <p className="text-gray-700">{comment.content}</p>

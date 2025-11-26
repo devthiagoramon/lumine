@@ -1,7 +1,7 @@
 """
 Availability Schemas
 """
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 from datetime import datetime
 
@@ -18,14 +18,15 @@ class PsychologistAvailabilityUpdate(BaseModel):
 
 class PsychologistAvailabilityResponse(BaseModel):
     id: int
-    psychologist_id: int
-    day_of_week: int
-    start_time: str
-    end_time: str
-    is_available: bool
-    created_at: datetime
-    updated_at: Optional[datetime]
+    psychologist_id: int = Field(alias="id_psicologo")
+    day_of_week: int = Field(alias="dia_da_semana")
+    start_time: str = Field(alias="horario_inicio")
+    end_time: str = Field(alias="horario_fim")
+    is_available: bool = Field(alias="esta_disponivel")
+    created_at: datetime = Field(alias="criado_em")
+    updated_at: Optional[datetime] = Field(default=None, alias="atualizado_em")
     
     class Config:
         from_attributes = True
+        populate_by_name = True
 
