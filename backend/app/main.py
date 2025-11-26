@@ -1,3 +1,13 @@
+"""
+⚠️ IMPORTANTE: Este arquivo NÃO deve ser executado diretamente!
+
+Execute a aplicação usando um dos seguintes métodos:
+1. Do diretório backend/: python run.py
+2. Do diretório backend/: uvicorn app.main:app --reload
+3. Do diretório backend/: python -m uvicorn app.main:app --reload
+
+NUNCA execute: python app/main.py ou python main.py
+"""
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.controllers import (
