@@ -88,7 +88,10 @@ const ClientDashboard = () => {
   const handlePaymentSuccess = () => {
     setShowPaymentForm(false)
     setSelectedAppointment(null)
-    fetchData()
+    // Aguardar um pouco para garantir que o backend processou a atualização
+    setTimeout(() => {
+      fetchData()
+    }, 500)
   }
 
   const checkPaymentStatus = async (appointmentId) => {
@@ -284,16 +287,8 @@ const ClientDashboard = () => {
                         )}
                       </div>
                       <div className="flex flex-col gap-2">
-                        {appointment.status === 'pending' && (
-                          <button
-                            onClick={() => handlePayAppointment(appointment)}
-                            className="btn-primary text-sm px-4 py-2 flex items-center justify-center"
-                          >
-                            <CreditCard className="mr-2" size={16} />
-                            Pagar Agora
-                          </button>
-                        )}
-                        {appointment.status === 'confirmed' && appointment.payment_status === 'pending' && (
+                        {/* Mostrar botão apenas se o pagamento ainda não foi feito */}
+                        {(appointment.status === 'pending' || (appointment.status === 'confirmed' && appointment.payment_status === 'pending')) && (
                           <button
                             onClick={() => handlePayAppointment(appointment)}
                             className="btn-primary text-sm px-4 py-2 flex items-center justify-center"

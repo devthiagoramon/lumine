@@ -26,15 +26,34 @@ def criar_entrada(
             detail="Intensidade deve estar entre 1 e 10"
         )
     
-    entrada_created = EmotionDiary.criar(
-        user_id=usuario_atual.id,
-        date=entrada.date,
-        emotion=entrada.emotion,
-        intensity=entrada.intensity,
-        notes=entrada.notes,
-        tags=entrada.tags
-    )
-    return entrada_created
+    import sys
+    import traceback
+    
+    try:
+        entrada_created = EmotionDiary.criar(
+            id_usuario=usuario_atual.id,
+            data=entrada.date,
+            emocao=entrada.emotion,
+            intensidade=entrada.intensity,
+            notas=entrada.notes,
+            tags=entrada.tags
+        )
+        
+        print(f"DEBUG: Entrada criada com sucesso - ID: {entrada_created.id}", file=sys.stderr, flush=True)
+        
+        # Serializar manualmente para garantir que os aliases sejam usados
+        from app.schemas.diario_emocional import EmotionDiaryResponse
+        entrada_dict = EmotionDiaryResponse.model_validate(entrada_created).model_dump(by_alias=True, mode='json')
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=entrada_dict, status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        print(f"ERROR: Erro ao criar entrada: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao salvar entrada: {str(e)}"
+        )
 
 @router.get("/", response_model=List[EmotionDiaryResponse])
 def obter_entradas(
@@ -50,7 +69,24 @@ def obter_entradas(
         data_fim=data_fim, 
         emocao=emocao
     )
-    return entradas
+    
+    # Serializar manualmente para garantir que os aliases sejam usados
+    try:
+        from app.schemas.diario_emocional import EmotionDiaryResponse
+        serialized = []
+        for entrada in entradas:
+            entrada_dict = EmotionDiaryResponse.model_validate(entrada).model_dump(by_alias=True, mode='json')
+            serialized.append(entrada_dict)
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao serializar entradas: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        # Fallback: retornar sem serialização manual
+        return entradas
 
 @router.get("/stats")
 def obter_estatisticas(
@@ -105,10 +141,36 @@ def atualizar_entrada(
                 detail="Intensidade deve estar entre 1 e 10"
             )
     
-    dados_atualizacao = atualizacao_entrada.dict(exclude_unset=True)
+    # Mapear campos do schema para o modelo
+    dados_atualizacao = {}
+    if atualizacao_entrada.date is not None:
+        dados_atualizacao['data'] = atualizacao_entrada.date
+    if atualizacao_entrada.emotion is not None:
+        dados_atualizacao['emocao'] = atualizacao_entrada.emotion
+    if atualizacao_entrada.intensity is not None:
+        dados_atualizacao['intensidade'] = atualizacao_entrada.intensity
+    if atualizacao_entrada.notes is not None:
+        dados_atualizacao['notas'] = atualizacao_entrada.notes
+    if atualizacao_entrada.tags is not None:
+        dados_atualizacao['tags'] = atualizacao_entrada.tags
+    
     entrada.atualizar(**dados_atualizacao)
     
-    return entrada
+    # Recarregar entrada
+    entrada = EmotionDiary.obter_por_id(id_entrada, usuario_atual.id)
+    
+    # Serializar manualmente
+    try:
+        from app.schemas.diario_emocional import EmotionDiaryResponse
+        entrada_dict = EmotionDiaryResponse.model_validate(entrada).model_dump(by_alias=True, mode='json')
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=entrada_dict)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao serializar entrada atualizada: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        return entrada
 
 @router.delete("/{id_entrada}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_entrada(

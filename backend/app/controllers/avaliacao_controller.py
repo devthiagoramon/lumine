@@ -36,11 +36,17 @@ def criar_avaliacao(
     
     # Verificar se o usuário teve pelo menos uma consulta concluída com este psicólogo
     from app.models.agendamento import Appointment
+    import sys
+    
     consultas_completadas = Appointment.listar_por_usuario(usuario_atual.id, status='completed')
+    print(f"DEBUG: Consultas completadas encontradas: {len(consultas_completadas)}", file=sys.stderr, flush=True)
+    
     consulta_com_psicologo = any(
-        apt.psychologist_id == avaliacao.psychologist_id 
+        apt.id_psicologo == avaliacao.psychologist_id 
         for apt in consultas_completadas
     )
+    
+    print(f"DEBUG: Consulta com psicólogo {avaliacao.psychologist_id}: {consulta_com_psicologo}", file=sys.stderr, flush=True)
     
     if not consulta_com_psicologo:
         raise HTTPException(
@@ -56,23 +62,39 @@ def criar_avaliacao(
         )
     
     # Criar avaliação
-    avaliacao_created = Review.criar(
-        id_psicologo=avaliacao.psychologist_id,
-        id_usuario=usuario_atual.id,
-        avaliacao=avaliacao.rating,
-        comentario=avaliacao.comment
-    )
-    
-    # Atualizar rating do psicólogo
-    media_rating = Review.calcular_rating_medio(avaliacao.psychologist_id)
-    total_avaliacoes = Review.contar_total(avaliacao.psychologist_id)
-    
-    psicologo.atualizar(rating=media_rating, total_reviews=total_avaliacoes)
-    
-    # Recarregar com relacionamentos
-    avaliacao_object = Review.obter_por_id_com_relacionamentos(avaliacao_created.id)
-    
-    return avaliacao_object
+    try:
+        avaliacao_created = Review.criar(
+            id_psicologo=avaliacao.psychologist_id,
+            id_usuario=usuario_atual.id,
+            avaliacao=avaliacao.rating,
+            comentario=avaliacao.comment
+        )
+        
+        # Atualizar rating do psicólogo
+        media_rating = Review.calcular_rating_medio(avaliacao.psychologist_id)
+        total_avaliacoes = Review.contar_total(avaliacao.psychologist_id)
+        
+        psicologo.atualizar(avaliacao=media_rating, total_avaliacoes=total_avaliacoes)
+        
+        # Recarregar com relacionamentos
+        avaliacao_object = Review.obter_por_id_com_relacionamentos(avaliacao_created.id)
+        
+        # Serializar manualmente para garantir que os aliases sejam usados
+        from app.schemas.avaliacao import ReviewResponse
+        
+        avaliacao_dict = ReviewResponse.model_validate(avaliacao_object).model_dump(by_alias=True, mode='json')
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=avaliacao_dict, status_code=status.HTTP_201_CREATED)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao criar avaliação: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao criar avaliação: {str(e)}"
+        )
 
 @router.get("/psicologo/{id_psicologo}", response_model=List[ReviewResponse])
 def obter_avaliacoes_psicologo(
@@ -118,7 +140,7 @@ def deletar_avaliacao(
         media_rating = Review.calcular_rating_medio(id_psicologo)
         total_avaliacoes = Review.contar_total(id_psicologo)
         
-        psicologo.atualizar(rating=media_rating, total_reviews=total_avaliacoes)
+        psicologo.atualizar(avaliacao=media_rating, total_avaliacoes=total_avaliacoes)
     
     return None
 

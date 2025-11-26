@@ -62,13 +62,30 @@ class PaymentMethod(Base):
         """Criar novo método de pagamento"""
         db = get_db_session()
         try:
+            # Mapear campos em inglês para português se necessário
+            mapped_kwargs = {}
+            field_mapping = {
+                'user_id': 'id_usuario',
+                'card_type': 'tipo_cartao',
+                'card_brand': 'bandeira',
+                'last_four_digits': 'ultimos_quatro_digitos',
+                'card_holder': 'portador',
+                'expiry_month': 'mes_validade',
+                'expiry_year': 'ano_validade',
+                'is_default': 'eh_padrao'
+            }
+            
+            for key, value in kwargs.items():
+                mapped_key = field_mapping.get(key, key)
+                mapped_kwargs[mapped_key] = value
+            
             # Se este for marcado como padrão, remover padrão dos outros
-            if kwargs.get('eh_padrao', False) or kwargs.get('is_default', False):
-                id_user = kwargs.get('id_usuario') or kwargs.get('user_id')
+            if mapped_kwargs.get('eh_padrao', False):
+                id_user = mapped_kwargs.get('id_usuario')
                 if id_user:
                     cls.remover_padrao(id_user)
             
-            metodo = cls(**kwargs)
+            metodo = cls(**mapped_kwargs)
             db.add(metodo)
             db.commit()
             db.refresh(metodo)

@@ -64,5 +64,16 @@ def fazer_login(
 @router.get("/me", response_model=UserResponse)
 def obter_usuario_atual(usuario_atual: User = Depends(auth.get_current_active_user)):
     """Obter usuário atual"""
-    return usuario_atual
+    try:
+        # Serializar manualmente para garantir que funciona
+        user_dict = UserResponse.model_validate(usuario_atual).model_dump(by_alias=False, mode='json')
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=user_dict)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao serializar usuário: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        # Fallback: retornar diretamente
+        return usuario_atual
 

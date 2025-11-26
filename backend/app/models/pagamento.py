@@ -46,9 +46,16 @@ class Payment(Base):
     @classmethod
     def listar_por_usuario(cls, id_usuario: int) -> List["Payment"]:
         """Listar pagamentos de um usuário"""
+        from sqlalchemy.orm import joinedload
+        from app.models.agendamento import Appointment
+        from app.models.psicologo import Psychologist
+        from app.models.usuario import User
+        
         db = get_db_session()
         try:
-            return db.query(cls).filter(cls.id_usuario == id_usuario).order_by(cls.criado_em.desc()).all()
+            return db.query(cls).filter(cls.id_usuario == id_usuario).options(
+                joinedload(cls.appointment).joinedload(Appointment.psychologist).joinedload(Psychologist.user)
+            ).order_by(cls.criado_em.desc()).all()
         finally:
             db.close()
     

@@ -1,7 +1,7 @@
 """
 Payment Method Schemas
 """
-from pydantic import BaseModel, validator
+from pydantic import BaseModel, Field, field_validator
 from typing import Optional
 from datetime import datetime
 import re
@@ -14,16 +14,22 @@ class PaymentMethodCreate(BaseModel):
     card_cvv: str
     is_default: bool = False
     
-    @validator('card_number')
+    @field_validator('card_number', mode='before')
+    @classmethod
     def validate_card_number(cls, v):
+        if not isinstance(v, str):
+            raise ValueError('Número do cartão deve ser uma string')
         # Remover espaços e caracteres não numéricos
         cleaned = re.sub(r'\s+', '', v)
         if not cleaned.isdigit() or len(cleaned) < 13 or len(cleaned) > 19:
             raise ValueError('Número do cartão inválido')
         return cleaned
     
-    @validator('card_expiry')
+    @field_validator('card_expiry', mode='before')
+    @classmethod
     def validate_card_expiry(cls, v):
+        if not isinstance(v, str):
+            raise ValueError('Data de validade deve ser uma string')
         # Validar formato MM/YY
         if not re.match(r'^\d{2}/\d{2}$', v):
             raise ValueError('Data de validade deve estar no formato MM/AA')
@@ -32,8 +38,11 @@ class PaymentMethodCreate(BaseModel):
             raise ValueError('Mês inválido')
         return v
     
-    @validator('card_cvv')
+    @field_validator('card_cvv', mode='before')
+    @classmethod
     def validate_card_cvv(cls, v):
+        if not isinstance(v, str):
+            raise ValueError('CVV deve ser uma string')
         if not v.isdigit() or len(v) < 3 or len(v) > 4:
             raise ValueError('CVV inválido')
         return v
@@ -43,7 +52,8 @@ class PaymentMethodUpdate(BaseModel):
     card_expiry: Optional[str] = None
     is_default: Optional[bool] = None
     
-    @validator('card_expiry')
+    @field_validator('card_expiry')
+    @classmethod
     def validate_card_expiry(cls, v):
         if v is not None:
             if not re.match(r'^\d{2}/\d{2}$', v):
@@ -55,19 +65,20 @@ class PaymentMethodUpdate(BaseModel):
 
 class PaymentMethodResponse(BaseModel):
     id: int
-    user_id: int
-    card_type: str
-    card_brand: Optional[str]
-    last_four_digits: str
-    card_holder: str
-    expiry_month: str
-    expiry_year: str
-    is_default: bool
-    created_at: datetime
-    updated_at: Optional[datetime]
+    user_id: int = Field(alias="id_usuario")
+    card_type: str = Field(alias="tipo_cartao")
+    card_brand: Optional[str] = Field(alias="bandeira", default=None)
+    last_four_digits: str = Field(alias="ultimos_quatro_digitos")
+    card_holder: str = Field(alias="portador")
+    expiry_month: str = Field(alias="mes_validade")
+    expiry_year: str = Field(alias="ano_validade")
+    is_default: bool = Field(alias="eh_padrao")
+    created_at: datetime = Field(alias="criado_em")
+    updated_at: Optional[datetime] = Field(alias="atualizado_em", default=None)
     
     class Config:
         from_attributes = True
+        populate_by_name = True
 
 
 

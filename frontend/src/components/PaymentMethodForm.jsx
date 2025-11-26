@@ -97,19 +97,43 @@ const PaymentMethodForm = ({ method, onSuccess, onCancel }) => {
         await api.put(`/payment-methods/${method.id}`, updateData)
       } else {
         // Criar novo método
-        await api.post('/payment-methods/', {
+        const payload = {
           card_type: formData.card_type,
           card_number: formData.card_number.replace(/\s/g, ''),
           card_holder: formData.card_holder,
           card_expiry: formData.card_expiry,
           card_cvv: formData.card_cvv,
           is_default: formData.is_default
+        }
+        console.log('📤 Enviando dados para criar método de pagamento:', {
+          ...payload,
+          card_number: payload.card_number.substring(0, 4) + '...' + payload.card_number.substring(payload.card_number.length - 4),
+          card_cvv: '***'
         })
+        await api.post('/payment-methods/', payload)
       }
 
       onSuccess()
     } catch (err) {
-      setError(err.response?.data?.detail || 'Erro ao salvar método de pagamento')
+      console.error('❌ Erro ao salvar método de pagamento:', err)
+      console.error('❌ Response data:', err.response?.data)
+      
+      // Tratar erros de validação (422) que vêm como array
+      let errorMessage = 'Erro ao salvar método de pagamento'
+      if (err.response?.data?.detail) {
+        if (Array.isArray(err.response.data.detail)) {
+          // Se for array de erros de validação, pegar a primeira mensagem
+          errorMessage = err.response.data.detail[0]?.msg || err.response.data.detail[0]?.message || errorMessage
+        } else if (typeof err.response.data.detail === 'string') {
+          errorMessage = err.response.data.detail
+        } else {
+          errorMessage = JSON.stringify(err.response.data.detail)
+        }
+      } else if (err.message) {
+        errorMessage = err.message
+      }
+      
+      setError(errorMessage)
     } finally {
       setLoading(false)
     }

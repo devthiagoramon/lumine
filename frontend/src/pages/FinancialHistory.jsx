@@ -26,6 +26,13 @@ const FinancialHistory = () => {
         api.get('/payments/balance')
       ])
 
+      console.log('💰 DEBUG: Histórico financeiro recebido:', historyResponse.data)
+      if (historyResponse.data && historyResponse.data.length > 0) {
+        console.log('💰 DEBUG: Primeiro pagamento:', historyResponse.data[0])
+        console.log('💰 DEBUG: Appointment do primeiro:', historyResponse.data[0].appointment)
+        console.log('💰 DEBUG: User do appointment:', historyResponse.data[0].appointment?.user)
+      }
+      
       setFinancialHistory(historyResponse.data)
       setBalance(balanceResponse.data.balance || 0)
 
@@ -35,7 +42,7 @@ const FinancialHistory = () => {
       const thisYear = new Date().getFullYear()
       const thisMonthEarnings = historyResponse.data
         .filter(payment => {
-          const paymentDate = new Date(payment.criado_em)
+          const paymentDate = new Date(payment.created_at || payment.criado_em)
           return paymentDate.getMonth() === thisMonth && paymentDate.getFullYear() === thisYear
         })
         .reduce((sum, payment) => sum + (payment.amount * 0.80), 0)
@@ -60,13 +67,24 @@ const FinancialHistory = () => {
   }
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleDateString('pt-BR', {
-      day: 'numeric',
-      month: 'long',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    if (!dateString) return 'Data inválida'
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.error('Data inválida:', dateString)
+        return 'Data inválida'
+      }
+      return date.toLocaleDateString('pt-BR', {
+        day: 'numeric',
+        month: 'long',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dateString)
+      return 'Data inválida'
+    }
   }
 
   if (loading) {
@@ -179,12 +197,12 @@ const FinancialHistory = () => {
                     return (
                       <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50">
                         <td className="py-4 px-4 text-sm text-gray-700">
-                          {formatDate(payment.criado_em)}
+                          {formatDate(payment.created_at || payment.criado_em)}
                         </td>
                         <td className="py-4 px-4 text-sm text-gray-700">
                           <div className="flex items-center gap-2">
                             <User className="text-gray-500" size={16} />
-                            {payment.appointment?.user?.nome_completo || 'N/A'}
+                            {payment.appointment?.user?.nome_completo || payment.appointment?.user?.full_name || 'N/A'}
                           </div>
                         </td>
                         <td className="py-4 px-4 text-sm text-gray-700">

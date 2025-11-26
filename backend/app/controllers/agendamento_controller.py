@@ -11,6 +11,7 @@ from app.models.psicologo import Psychologist
 from app.models.agendamento import Appointment
 from app.models.notificacao import Notification
 from app.models.disponibilidade_psicologo import PsychologistAvailability
+from app.models.pagamento import Payment
 
 router = APIRouter()
 
@@ -114,6 +115,7 @@ def criar_agendamento(
         
         # Verificar se o horário está dentro de alguma disponibilidade
         # A lógica deve ser EXATAMENTE igual à geração de slots em disponibilidade_controller.py
+        # Na geração de slots (linha 308-316): while horario_atual < horario_fim e if proximo_horario > horario_fim: break
         horario_valido = False
         for disp in disponibilidade_dia:
             horario_inicio = datetime.strptime(disp.horario_inicio, "%H:%M").time()
@@ -121,39 +123,55 @@ def criar_agendamento(
             
             print(f"DEBUG: Comparando horário {horario_agendamento} com disponibilidade {horario_inicio}-{horario_fim}")
             
-            # Usar a mesma lógica do disponibilidade_controller.py:
+            # Usar a mesma lógica do disponibilidade_controller.py (linha 308-316):
             # - O horário deve ser >= horario_inicio
             # - O horário deve ser < horario_fim (não pode ser igual ou maior)
             # - O slot de 1 hora (horario_agendamento + 1h) não deve ultrapassar horario_fim
             if horario_agendamento >= horario_inicio and horario_agendamento < horario_fim:
-                # Calcular próximo horário (1 hora depois) - mesma lógica do disponibilidade_controller
+                # Calcular próximo horário (1 hora depois) - mesma lógica do disponibilidade_controller (linha 310-312)
                 data_hora_atual = datetime.combine(data_agendamento_date, horario_agendamento)
                 proxima_data_hora = data_hora_atual + timedelta(hours=1)
                 proximo_horario = proxima_data_hora.time()
                 
                 print(f"DEBUG: Próximo horário: {proximo_horario}, Horário fim: {horario_fim}")
                 
-                # Verificar se o próximo horário não ultrapassa o fim (mesma lógica do disponibilidade_controller)
+                # Verificar se o próximo horário não ultrapassa o fim (mesma lógica do disponibilidade_controller linha 315)
+                # Na geração: if proximo_horario > horario_fim: break (não inclui o slot)
+                # Na validação: se proximo_horario > horario_fim, o slot não é válido
                 if proximo_horario <= horario_fim:
                     horario_valido = True
-                    print(f"DEBUG: Horário válido!")
+                    print(f"DEBUG: Horário válido! (horario_agendamento={horario_agendamento}, proximo_horario={proximo_horario}, horario_fim={horario_fim})")
                     break
+                else:
+                    print(f"DEBUG: Próximo horário ultrapassa o fim - {proximo_horario} > {horario_fim}")
         
         if not horario_valido:
             print(f"DEBUG: Horário INVÁLIDO - não está dentro de nenhuma disponibilidade")
+            print(f"DEBUG: Horário tentado: {horario_agendamento}, Data: {data_agendamento_date}, Dia da semana: {dia_da_semana}")
             raise HTTPException(
                 status_code=400,
                 detail="O horário selecionado não está dentro da disponibilidade do psicólogo para este dia."
             )
         
         # Verificar se o slot não está já ocupado
+        # IMPORTANTE: Comparar agendamentos usando o mesmo timezone local
         agendamentos_existentes = Appointment.listar_por_psicologo(agendamento.psychologist_id)
         for apt in agendamentos_existentes:
-            # Considerar apenas agendamentos confirmados como ocupando o slot
-            if apt.data_agendamento.date() == data_agendamento_date and apt.status == 'confirmed':
-                apt_time = apt.data_agendamento.time()
-                # Verificar se há sobreposição (mesmo horário exato)
-                if apt_time == horario_agendamento:
+            # Considerar apenas agendamentos confirmados ou pendentes como ocupando o slot
+            if apt.status in ['pending', 'confirmed']:
+                # Converter data_agendamento para timezone local para comparação
+                apt_data_utc = apt.data_agendamento
+                if apt_data_utc.tzinfo is not None:
+                    apt_data_local = apt_data_utc.astimezone(local_tz)
+                else:
+                    apt_data_local = apt_data_utc.replace(tzinfo=timezone.utc).astimezone(local_tz)
+                
+                apt_date = apt_data_local.date()
+                apt_time = apt_data_local.time()
+                
+                # Verificar se há sobreposição (mesma data e mesmo horário)
+                if apt_date == data_agendamento_date and apt_time == horario_agendamento:
+                    print(f"DEBUG: Slot já ocupado - Agendamento ID: {apt.id}, Data: {apt_date}, Horário: {apt_time}")
                     raise HTTPException(
                         status_code=400,
                         detail="Este horário já está ocupado. Por favor, selecione outro horário."
@@ -252,18 +270,25 @@ def obter_meus_agendamentos(
     agendamentos = Appointment.listar_por_usuario(usuario_atual.id, status=filtro_status, carregar_relacionamentos=True)
     print(f"DEBUG: Total de agendamentos encontrados: {len(agendamentos)}", file=sys.stderr, flush=True)
     for i, apt in enumerate(agendamentos):
-        print(f"DEBUG: Agendamento {i+1}: ID={apt.id}, Data={apt.data_agendamento}, Status={apt.status}", file=sys.stderr, flush=True)
+        print(f"DEBUG: Agendamento {i+1}: ID={apt.id}, Data={apt.data_agendamento}, Status={apt.status}, Status Pagamento={apt.status_pagamento}", file=sys.stderr, flush=True)
         print(f"DEBUG:   Psychologist ID: {apt.id_psicologo}, User ID: {apt.id_usuario}", file=sys.stderr, flush=True)
     
     # Serializar manualmente para garantir que os aliases sejam usados
     try:
-        serialized = [
-            AppointmentResponse.model_validate(apt).model_dump(by_alias=True, mode='json')
-            for apt in agendamentos
-        ]
+        serialized = []
+        for apt in agendamentos:
+            # Validar e serializar cada agendamento
+            apt_response = AppointmentResponse.model_validate(apt)
+            apt_dict = apt_response.model_dump(by_alias=True, mode='json')
+            # Garantir que payment_status está presente
+            if 'payment_status' not in apt_dict or apt_dict['payment_status'] is None:
+                apt_dict['payment_status'] = apt.status_pagamento if hasattr(apt, 'status_pagamento') else None
+            serialized.append(apt_dict)
+            print(f"DEBUG: Agendamento {apt.id} serializado - status: {apt_dict.get('status')}, payment_status: {apt_dict.get('payment_status')}", file=sys.stderr, flush=True)
+        
         print(f"DEBUG: Serialização concluída, {len(serialized)} agendamentos serializados", file=sys.stderr, flush=True)
         if serialized:
-            print(f"DEBUG: Primeiro agendamento serializado: appointment_date={serialized[0].get('appointment_date')}", file=sys.stderr, flush=True)
+            print(f"DEBUG: Primeiro agendamento serializado: appointment_date={serialized[0].get('appointment_date')}, status={serialized[0].get('status')}, payment_status={serialized[0].get('payment_status')}", file=sys.stderr, flush=True)
         from fastapi.responses import JSONResponse
         return JSONResponse(content=serialized)
     except Exception as e:
@@ -279,6 +304,8 @@ def obter_agendamentos_psicologo(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Obter agendamentos do psicólogo"""
+    import sys
+    
     if not usuario_atual.eh_psicologo:
         raise HTTPException(
             status_code=403,
@@ -293,8 +320,34 @@ def obter_agendamentos_psicologo(
             detail="Perfil de psicólogo não encontrado"
         )
     
+    print(f"DEBUG: Buscando agendamentos para psicólogo ID: {psicologo.id}, filtro_status: {filtro_status}", file=sys.stderr, flush=True)
     agendamentos = Appointment.listar_por_psicologo(psicologo.id, status=filtro_status, carregar_relacionamentos=True)
-    return agendamentos
+    print(f"DEBUG: Total de agendamentos encontrados: {len(agendamentos)}", file=sys.stderr, flush=True)
+    
+    for i, apt in enumerate(agendamentos):
+        print(f"DEBUG: Agendamento {i+1}: ID={apt.id}, Data={apt.data_agendamento}, Status={apt.status}, Status Pagamento={apt.status_pagamento}", file=sys.stderr, flush=True)
+    
+    # Serializar manualmente para garantir que os aliases sejam usados
+    try:
+        serialized = []
+        for apt in agendamentos:
+            # Validar e serializar cada agendamento
+            apt_response = AppointmentResponse.model_validate(apt)
+            apt_dict = apt_response.model_dump(by_alias=True, mode='json')
+            # Garantir que payment_status está presente
+            if 'payment_status' not in apt_dict or apt_dict['payment_status'] is None:
+                apt_dict['payment_status'] = apt.status_pagamento if hasattr(apt, 'status_pagamento') else None
+            serialized.append(apt_dict)
+        
+        print(f"DEBUG: Serialização concluída, {len(serialized)} agendamentos serializados", file=sys.stderr, flush=True)
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        import traceback
+        print(f"ERROR: Erro ao serializar agendamentos: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        # Fallback: retornar sem serialização manual
+        return agendamentos
 
 @router.get("/{id_agendamento}", response_model=AppointmentResponse)
 def obter_agendamento(
@@ -313,7 +366,7 @@ def obter_agendamento(
     # Verificar permissão
     psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
     
-    if agendamento.user_id != usuario_atual.id and (not psicologo or agendamento.psychologist_id != psicologo.id):
+    if agendamento.id_usuario != usuario_atual.id and (not psicologo or agendamento.id_psicologo != psicologo.id):
         raise HTTPException(
             status_code=403,
             detail="Você não tem permissão para visualizar este agendamento"
@@ -328,36 +381,96 @@ def atualizar_agendamento(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Atualizar agendamento"""
-    agendamento = Appointment.obter_por_id(id_agendamento)
+    import sys
+    import traceback
     
-    if not agendamento:
-        raise HTTPException(
-            status_code=404,
-            detail="Agendamento não encontrado"
+    try:
+        agendamento = Appointment.obter_por_id(id_agendamento)
+        
+        if not agendamento:
+            raise HTTPException(
+                status_code=404,
+                detail="Agendamento não encontrado"
+            )
+        
+        # Verificar permissão
+        psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
+        
+        pode_atualizar = (
+            agendamento.id_usuario == usuario_atual.id or
+            (psicologo and agendamento.id_psicologo == psicologo.id)
         )
-    
-    # Verificar permissão
-    psicologo = Psychologist.obter_por_user_id(usuario_atual.id)
-    
-    pode_atualizar = (
-        agendamento.user_id == usuario_atual.id or
-        (psicologo and agendamento.psychologist_id == psicologo.id)
-    )
-    
-    if not pode_atualizar:
+        
+        if not pode_atualizar:
+            raise HTTPException(
+                status_code=403,
+                detail="Você não tem permissão para atualizar este agendamento"
+            )
+        
+        # Verificar se está mudando para 'completed' e se o pagamento foi feito
+        status_anterior = agendamento.status
+        dados_atualizacao = atualizacao_agendamento.dict(exclude_unset=True)
+        novo_status = dados_atualizacao.get('status', status_anterior)
+        
+        print(f"DEBUG: Atualizando agendamento {id_agendamento} - Status anterior: {status_anterior}, Novo status: {novo_status}", file=sys.stderr, flush=True)
+        
+        # Se está mudando para 'completed', apenas o psicólogo pode fazer isso
+        if novo_status == 'completed' and status_anterior != 'completed':
+            if not psicologo or agendamento.id_psicologo != psicologo.id:
+                raise HTTPException(
+                    status_code=403,
+                    detail="Apenas o psicólogo pode marcar a consulta como concluída"
+                )
+            
+            print(f"DEBUG: Marcando como concluído - Status pagamento: {agendamento.status_pagamento}", file=sys.stderr, flush=True)
+            print(f"DEBUG: Psicólogo encontrado: {psicologo is not None}, ID: {psicologo.id if psicologo else 'N/A'}, Saldo atual: {psicologo.saldo if psicologo else 'N/A'}", file=sys.stderr, flush=True)
+            
+            # Verificar se o pagamento foi feito antes de creditar o saldo
+            if agendamento.status_pagamento == 'paid':
+                # Obter o pagamento para pegar o valor
+                pagamento = Payment.obter_por_agendamento(id_agendamento)
+                print(f"DEBUG: Pagamento encontrado: {pagamento is not None}", file=sys.stderr, flush=True)
+                if pagamento:
+                    print(f"DEBUG: Pagamento - ID: {pagamento.id}, Status: {pagamento.status}, Valor: {pagamento.valor}", file=sys.stderr, flush=True)
+                
+                if pagamento and pagamento.status == 'paid':
+                    # Calcular parte do psicólogo (80% do valor, 20% para a plataforma)
+                    parte_psicologo = pagamento.valor * 0.80
+                    saldo_atual = psicologo.saldo or 0.0
+                    print(f"DEBUG: Antes de atualizar - Saldo atual: {saldo_atual}, Parte psicólogo: {parte_psicologo}, Novo saldo será: {saldo_atual + parte_psicologo}", file=sys.stderr, flush=True)
+                    
+                    # Recarregar psicólogo do banco para garantir que temos a versão mais recente
+                    psicologo_atualizado = Psychologist.obter_por_id(psicologo.id)
+                    if psicologo_atualizado:
+                        saldo_atual = psicologo_atualizado.saldo or 0.0
+                        psicologo_atualizado.atualizar(saldo=saldo_atual + parte_psicologo)
+                        
+                        # Verificar se foi atualizado
+                        psicologo_verificacao = Psychologist.obter_por_id(psicologo.id)
+                        print(f"DEBUG: Saldo creditado após consulta concluída - Psicólogo ID: {psicologo.id}, Valor: R$ {pagamento.valor:.2f}, Parte psicólogo: R$ {parte_psicologo:.2f}, Saldo anterior: R$ {saldo_atual:.2f}, Saldo novo: R$ {psicologo_verificacao.saldo:.2f}", file=sys.stderr, flush=True)
+                    else:
+                        print(f"ERROR: Não foi possível recarregar psicólogo do banco", file=sys.stderr, flush=True)
+                else:
+                    print(f"DEBUG: Pagamento não encontrado ou não está como 'paid' - pagamento: {pagamento}, status: {pagamento.status if pagamento else 'N/A'}", file=sys.stderr, flush=True)
+            else:
+                print(f"DEBUG: Status do pagamento não é 'paid' - status_pagamento: {agendamento.status_pagamento}", file=sys.stderr, flush=True)
+        
+        # Atualizar campos
+        agendamento.atualizar(**dados_atualizacao)
+        
+        # Recarregar com relacionamentos
+        agendamento_db = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
+        
+        return agendamento_db
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR: Erro ao atualizar agendamento: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
         raise HTTPException(
-            status_code=403,
-            detail="Você não tem permissão para atualizar este agendamento"
+            status_code=500,
+            detail=f"Erro ao atualizar agendamento: {str(e)}"
         )
-    
-    # Atualizar campos
-    dados_atualizacao = atualizacao_agendamento.dict(exclude_unset=True)
-    agendamento.atualizar(**dados_atualizacao)
-    
-    # Recarregar com relacionamentos
-    agendamento_db = Appointment.obter_por_id(id_agendamento, carregar_relacionamentos=True)
-    
-    return agendamento_db
 
 @router.delete("/{id_agendamento}", status_code=status.HTTP_204_NO_CONTENT)
 def deletar_agendamento(
@@ -498,7 +611,7 @@ def recusar_agendamento(
     
     agendamento = Appointment.obter_por_id(id_agendamento)
     
-    if not agendamento or agendamento.psychologist_id != psicologo.id:
+    if not agendamento or agendamento.id_psicologo != psicologo.id:
         raise HTTPException(
             status_code=404,
             detail="Agendamento não encontrado"

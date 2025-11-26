@@ -8,8 +8,11 @@ Execute a aplicação usando um dos seguintes métodos:
 
 NUNCA execute: python app/main.py ou python main.py
 """
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
+import sys
 from app.controllers import (
     auth_router, user_router, psychologist_router, search_router,
     review_router, appointment_router, favorite_router, forum_router,
@@ -65,4 +68,21 @@ async def root():
 @app.get("/api/health")
 async def health():
     return {"status": "healthy"}
+
+@app.exception_handler(RequestValidationError)
+async def validation_exception_handler(request: Request, exc: RequestValidationError):
+    """Handler para erros de validação - loga os erros para debug"""
+    print(f"=== ERRO DE VALIDAÇÃO ===", file=sys.stderr, flush=True)
+    print(f"URL: {request.url}", file=sys.stderr, flush=True)
+    print(f"Method: {request.method}", file=sys.stderr, flush=True)
+    print(f"Errors: {exc.errors()}", file=sys.stderr, flush=True)
+    try:
+        body = await request.body()
+        print(f"Request body: {body.decode('utf-8') if body else 'empty'}", file=sys.stderr, flush=True)
+    except Exception as e:
+        print(f"Erro ao ler body: {e}", file=sys.stderr, flush=True)
+    return JSONResponse(
+        status_code=422,
+        content={"detail": exc.errors()}
+    )
 

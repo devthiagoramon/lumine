@@ -42,6 +42,12 @@ const Forum = () => {
       if (search) params.search = search
 
       const response = await axios.get('/api/forum/posts', { params })
+      console.log('📝 DEBUG Forum: Posts recebidos:', response.data)
+      if (response.data && response.data.length > 0) {
+        console.log('📝 DEBUG Forum: Primeiro post:', response.data[0])
+        console.log('📝 DEBUG Forum: created_at do primeiro:', response.data[0].created_at)
+        console.log('📝 DEBUG Forum: criado_em do primeiro:', response.data[0].criado_em)
+      }
       setPosts(response.data)
     } catch (error) {
       console.error('Erro ao carregar posts:', error)
@@ -92,14 +98,24 @@ const Forum = () => {
   }
 
   const formatDate = (dateString) => {
-    const date = new Date(dateString)
-    return date.toLocaleString('pt-BR', {
-      day: '2-digit',
-      month: '2-digit',
-      year: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit'
-    })
+    if (!dateString) return 'Data inválida'
+    try {
+      const date = new Date(dateString)
+      if (isNaN(date.getTime())) {
+        console.error('Data inválida:', dateString)
+        return 'Data inválida'
+      }
+      return date.toLocaleString('pt-BR', {
+        day: '2-digit',
+        month: '2-digit',
+        year: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit'
+      })
+    } catch (error) {
+      console.error('Erro ao formatar data:', error, dateString)
+      return 'Data inválida'
+    }
   }
 
   return (
@@ -220,7 +236,7 @@ const Forum = () => {
                           {post.user?.nome_completo || 'Usuário'}
                         </span>
                       )}
-                      <span>{formatDate(post.criado_em)}</span>
+                      <span>{formatDate(post.created_at || post.criado_em)}</span>
                       <span className="flex items-center">
                         <Eye className="mr-1" size={16} />
                         {post.views}
@@ -271,7 +287,7 @@ const Forum = () => {
                               </span>
                             )}
                             <span className="text-xs text-gray-500">
-                              {formatDate(comment.criado_em)}
+                              {formatDate(comment.created_at || comment.criado_em)}
                             </span>
                           </div>
                           <p className="text-gray-700">{comment.content}</p>

@@ -24,3 +24,4 @@ def downgrade() -> None:
     # Remover campo rejected
     op.drop_column('psychologists', 'rejected')
 
+

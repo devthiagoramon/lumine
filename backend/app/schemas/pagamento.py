@@ -2,8 +2,11 @@
 Payment Schemas
 """
 from pydantic import BaseModel, Field
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
 from datetime import datetime
+
+if TYPE_CHECKING:
+    from app.schemas.agendamento import AppointmentResponse
 
 class PaymentCreate(BaseModel):
     appointment_id: int
@@ -24,6 +27,7 @@ class PaymentResponse(BaseModel):
     transaction_id: Optional[str] = Field(default=None, alias="id_transacao", serialization_alias="transaction_id")
     created_at: datetime = Field(alias="criado_em", serialization_alias="created_at")
     updated_at: Optional[datetime] = Field(default=None, alias="atualizado_em", serialization_alias="updated_at")
+    appointment: Optional["AppointmentResponse"] = None
     
     class Config:
         from_attributes = True

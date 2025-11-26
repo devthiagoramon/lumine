@@ -33,7 +33,7 @@ def criar_saque(
         )
     
     # Verificar saldo disponível
-    saldo = psicologo.balance or 0.0
+    saldo = psicologo.saldo or 0.0
     if saque.amount > saldo:
         raise HTTPException(
             status_code=400,
@@ -58,7 +58,7 @@ def criar_saque(
     )
     
     # Reservar valor (subtrair do saldo)
-    psicologo.atualizar(balance=saldo - saque.amount)
+    psicologo.atualizar(saldo=saldo - saque.amount)
     
     # Criar notificação
     Notification.criar(

@@ -40,6 +40,14 @@ const PsychologistDashboard = () => {
         axios.get('/api/psychologists/me')
       ])
       
+      console.log('📅 DEBUG Psicólogo: Agendamentos recebidos:', appointmentsRes.data)
+      console.log('📅 DEBUG Psicólogo: Número de agendamentos:', appointmentsRes.data?.length || 0)
+      if (appointmentsRes.data && appointmentsRes.data.length > 0) {
+        console.log('📅 DEBUG Psicólogo: Primeiro agendamento:', appointmentsRes.data[0])
+        console.log('📅 DEBUG Psicólogo: Status do primeiro:', appointmentsRes.data[0].status)
+        console.log('📅 DEBUG Psicólogo: Payment status do primeiro:', appointmentsRes.data[0].payment_status)
+      }
+      
       setAppointments(appointmentsRes.data || [])
       
       if (reviewsRes.data) {

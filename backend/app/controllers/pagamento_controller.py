@@ -154,11 +154,8 @@ def criar_pagamento(
             except Exception as e:
                 print(f"DEBUG: Erro ao criar notificação de confirmação (não crítico): {e}", file=sys.stderr, flush=True)
         
-        # Processar pagamento e atualizar saldo do psicólogo (80% para o psicólogo, 20% para a plataforma)
-        parte_psicologo = valor * 0.80
-        saldo_atual = psicologo.saldo or 0.0
-        psicologo.atualizar(saldo=saldo_atual + parte_psicologo)
-        print(f"DEBUG: Saldo atualizado - Antes: {saldo_atual}, Depois: {saldo_atual + parte_psicologo}", file=sys.stderr, flush=True)
+        # O saldo do psicólogo será creditado apenas quando a consulta for marcada como concluída
+        # (não creditar no momento do pagamento)
         
         # Criar notificação para o psicólogo sobre pagamento
         try:
@@ -245,7 +242,56 @@ def obter_meus_pagamentos(
 ):
     """Obter meus pagamentos"""
     pagamentos = Payment.listar_por_usuario(usuario_atual.id)
-    return pagamentos
+    
+    # Serializar manualmente para garantir campos corretos
+    try:
+        from app.schemas.pagamento import PaymentResponse
+        from app.schemas.agendamento import AppointmentResponse
+        
+        pagamentos_dict = []
+        for pagamento in pagamentos:
+            try:
+                # Serializar appointment se existir
+                appointment_dict = None
+                if pagamento.appointment:
+                    try:
+                        appointment_dict = AppointmentResponse.model_validate(pagamento.appointment).model_dump(by_alias=True, mode='json')
+                    except Exception as e:
+                        import sys
+                        print(f"ERROR: Erro ao serializar appointment do pagamento {pagamento.id}: {e}", file=sys.stderr, flush=True)
+                
+                # Serializar pagamento
+                pagamento_dict = PaymentResponse.model_validate(pagamento).model_dump(by_alias=True, mode='json')
+                if appointment_dict:
+                    pagamento_dict['appointment'] = appointment_dict
+                
+                pagamentos_dict.append(pagamento_dict)
+            except Exception as e:
+                import sys
+                print(f"ERROR: Erro ao serializar pagamento {pagamento.id}: {e}", file=sys.stderr, flush=True)
+                # Fallback: serialização manual básica
+                pagamento_dict = {
+                    "id": pagamento.id,
+                    "appointment_id": pagamento.id_agendamento,
+                    "user_id": pagamento.id_usuario,
+                    "amount": pagamento.valor,
+                    "payment_method": pagamento.metodo_pagamento,
+                    "status": pagamento.status,
+                    "payment_id": pagamento.id_pagamento,
+                    "transaction_id": pagamento.id_transacao,
+                    "created_at": pagamento.criado_em.isoformat() if pagamento.criado_em else None,
+                    "updated_at": pagamento.atualizado_em.isoformat() if pagamento.atualizado_em else None
+                }
+                pagamentos_dict.append(pagamento_dict)
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=pagamentos_dict)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao serializar pagamentos: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        return pagamentos
 
 @router.post("/{id_pagamento}/reembolsar", response_model=PaymentResponse)
 def reembolsar_pagamento(
@@ -273,6 +319,7 @@ def reembolsar_pagamento(
     return pagamento
 
 @router.get("/historico-financeiro", response_model=List[PaymentResponse])
+@router.get("/financial-history", response_model=List[PaymentResponse])  # Alias em inglês para compatibilidade com frontend
 def obter_historico_financeiro(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
@@ -296,13 +343,62 @@ def obter_historico_financeiro(
     
     ids_agendamentos = [ag.id for ag in agendamentos]
     
-    # Filtrar pagamentos pagos dos agendamentos do psicólogo
-    pagamentos = Payment.listar_por_usuario(usuario_atual.id)
-    pagamentos = [p for p in pagamentos if p.appointment_id in ids_agendamentos and p.status == 'paid']
+    if not ids_agendamentos:
+        return []
     
-    return pagamentos
+    # Buscar pagamentos dos agendamentos do psicólogo diretamente do banco
+    # IMPORTANTE: Carregar relacionamentos (appointment e user) para exibir informações no frontend
+    from app.database import get_db_session
+    from sqlalchemy.orm import joinedload
+    db = get_db_session()
+    try:
+        pagamentos = db.query(Payment).options(
+            joinedload(Payment.appointment).joinedload(Appointment.user),
+            joinedload(Payment.user)
+        ).filter(
+            Payment.id_agendamento.in_(ids_agendamentos),
+            Payment.status == 'paid'
+        ).order_by(Payment.criado_em.desc()).all()
+        
+        # Serializar manualmente para incluir relacionamentos
+        from app.schemas.pagamento import PaymentResponse
+        from app.schemas.agendamento import AppointmentResponse
+        from app.schemas.autenticacao import UserResponse
+        
+        import sys
+        serialized = []
+        for pagamento in pagamentos:
+            # Serializar pagamento
+            pagamento_dict = PaymentResponse.model_validate(pagamento).model_dump(by_alias=True, mode='json')
+            
+            print(f"DEBUG: Pagamento {pagamento.id} - Appointment: {pagamento.appointment is not None}", file=sys.stderr, flush=True)
+            
+            # Adicionar informações do agendamento e usuário
+            if pagamento.appointment:
+                appointment_dict = AppointmentResponse.model_validate(pagamento.appointment).model_dump(by_alias=True, mode='json')
+                pagamento_dict['appointment'] = appointment_dict
+                
+                print(f"DEBUG: Appointment {pagamento.appointment.id} - User: {pagamento.appointment.user is not None}", file=sys.stderr, flush=True)
+                
+                # Adicionar informações do usuário do agendamento
+                if pagamento.appointment.user:
+                    user_dict = UserResponse.model_validate(pagamento.appointment.user).model_dump(by_alias=True, mode='json')
+                    pagamento_dict['appointment']['user'] = user_dict
+                    print(f"DEBUG: User {pagamento.appointment.user.id} - Nome: {pagamento.appointment.user.nome_completo}", file=sys.stderr, flush=True)
+                else:
+                    print(f"DEBUG: Appointment {pagamento.appointment.id} não tem user associado", file=sys.stderr, flush=True)
+            else:
+                print(f"DEBUG: Pagamento {pagamento.id} não tem appointment associado", file=sys.stderr, flush=True)
+            
+            serialized.append(pagamento_dict)
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=serialized)
+    finally:
+        db.close()
 
 @router.get("/saldo")
+@router.get("/balance")  # Alias em inglês para compatibilidade com frontend
 def obter_saldo(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
@@ -322,7 +418,7 @@ def obter_saldo(
         )
     
     return {
-        "balance": psicologo.balance or 0.0,
+        "balance": psicologo.saldo or 0.0,
         "psychologist_id": psicologo.id
     }
 

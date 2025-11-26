@@ -28,10 +28,10 @@ class UserResponse(BaseModel):
     email: str
     nome_completo: str
     telefone: Optional[str] = None
-    esta_ativo: bool = Field(alias="esta_ativo")
-    eh_psicologo: bool = Field(alias="eh_psicologo")
-    eh_admin: bool = Field(alias="eh_admin")
-    criado_em: datetime = Field(alias="criado_em")
+    esta_ativo: bool
+    eh_psicologo: bool
+    eh_admin: bool
+    criado_em: datetime
     
     class Config:
         from_attributes = True

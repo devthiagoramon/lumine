@@ -21,18 +21,40 @@ def criar_post(
     usuario_atual: User = Depends(auth.get_current_active_user)
 ):
     """Criar post no fórum"""
-    post_objeto = ForumPost.criar(
-        id_usuario=usuario_atual.id,
-        titulo=post.title,
-        conteudo=post.content,
-        categoria=post.category,
-        eh_anonimo=post.is_anonymous
-    )
+    import sys
+    import traceback
     
-    # Recarregar com relacionamentos e contagem de comentários
-    post_objeto = ForumPost.obter_por_id(post_objeto.id)
-    
-    return post_objeto
+    try:
+        print(f"DEBUG: Criando post - Título: {post.title}, Categoria: {post.category}, Anônimo: {post.is_anonymous}", file=sys.stderr, flush=True)
+        
+        post_objeto = ForumPost.criar(
+            id_usuario=usuario_atual.id,
+            titulo=post.title,
+            conteudo=post.content,
+            categoria=post.category,
+            eh_anonimo=post.is_anonymous
+        )
+        
+        print(f"DEBUG: Post criado com sucesso - ID: {post_objeto.id}", file=sys.stderr, flush=True)
+        
+        # Recarregar com relacionamentos e contagem de comentários
+        post_objeto = ForumPost.obter_por_id(post_objeto.id)
+        
+        # Serializar manualmente para garantir que funciona
+        from app.schemas.forum import ForumPostResponse
+        post_dict = ForumPostResponse.model_validate(post_objeto).model_dump(by_alias=True, mode='json')
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=post_dict, status_code=status.HTTP_201_CREATED)
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"ERROR: Erro ao criar post: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao criar post: {str(e)}"
+        )
 
 @router.get("/posts", response_model=List[ForumPostResponse])
 def listar_posts(
@@ -43,7 +65,24 @@ def listar_posts(
 ):
     """Listar posts do fórum"""
     posts = ForumPost.listar(categoria=categoria, busca=busca, pagina=pagina, tamanho_pagina=tamanho_pagina)
-    return posts
+    
+    # Serializar manualmente para garantir que os aliases sejam usados
+    try:
+        from app.schemas.forum import ForumPostResponse
+        serialized = []
+        for post in posts:
+            post_dict = ForumPostResponse.model_validate(post).model_dump(by_alias=True, mode='json')
+            serialized.append(post_dict)
+        
+        from fastapi.responses import JSONResponse
+        return JSONResponse(content=serialized)
+    except Exception as e:
+        import sys
+        import traceback
+        print(f"ERROR: Erro ao serializar posts: {e}", file=sys.stderr, flush=True)
+        traceback.print_exc(file=sys.stderr)
+        # Fallback: retornar sem serialização manual
+        return posts
 
 @router.get("/posts/{id_post}", response_model=ForumPostResponse)
 def obter_post(
@@ -83,7 +122,15 @@ def atualizar_post(
             detail="Você só pode editar seus próprios posts"
         )
     
-    dados_atualizacao = atualizacao_post.dict(exclude_unset=True)
+    # Mapear campos do schema para o modelo
+    dados_atualizacao = {}
+    if atualizacao_post.title is not None:
+        dados_atualizacao['titulo'] = atualizacao_post.title
+    if atualizacao_post.content is not None:
+        dados_atualizacao['conteudo'] = atualizacao_post.content
+    if atualizacao_post.category is not None:
+        dados_atualizacao['categoria'] = atualizacao_post.category
+    
     post.atualizar(**dados_atualizacao)
     
     # Recarregar com relacionamentos

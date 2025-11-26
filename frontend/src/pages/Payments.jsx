@@ -18,19 +18,15 @@ const Payments = () => {
   const [appointments, setAppointments] = useState([])
   const [deleteConfirm, setDeleteConfirm] = useState(null)
   const [openMenuId, setOpenMenuId] = useState(null)
-
-  useEffect(() => {
-    fetchPayments()
-    fetchAppointments()
-    fetchPaymentMethods()
-  }, [])
+  const [error, setError] = useState(null)
 
   const fetchPayments = async () => {
     try {
-      const response = await api.get('/payments/my-payments')
-      setPayments(response.data)
+      const response = await api.get('/payments/meus-pagamentos')
+      setPayments(response.data || [])
     } catch (error) {
       console.error('Erro ao carregar pagamentos:', error)
+      setPayments([])
     } finally {
       setLoading(false)
     }
@@ -38,21 +34,40 @@ const Payments = () => {
 
   const fetchAppointments = async () => {
     try {
-      const response = await api.get('/appointments/my-appointments')
-      setAppointments(response.data)
+      const response = await api.get('/appointments/meus-agendamentos')
+      setAppointments(response.data || [])
     } catch (error) {
       console.error('Erro ao carregar agendamentos:', error)
+      setAppointments([])
     }
   }
 
   const fetchPaymentMethods = async () => {
     try {
       const response = await api.get('/payment-methods/')
-      setPaymentMethods(response.data)
+      setPaymentMethods(response.data || [])
     } catch (error) {
       console.error('Erro ao carregar métodos de pagamento:', error)
+      setPaymentMethods([])
     }
   }
+
+  useEffect(() => {
+    const loadData = async () => {
+      try {
+        await Promise.all([
+          fetchPayments(),
+          fetchAppointments(),
+          fetchPaymentMethods()
+        ])
+      } catch (err) {
+        console.error('Erro ao inicializar página de pagamentos:', err)
+        setError('Erro ao carregar dados. Por favor, recarregue a página.')
+      }
+    }
+    loadData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const handlePayAppointment = (appointment) => {
     setSelectedAppointment(appointment)
@@ -67,9 +82,14 @@ const Payments = () => {
   }
 
   const handleMethodSuccess = () => {
-    setShowMethodForm(false)
-    setSelectedMethod(null)
-    fetchPaymentMethods()
+    try {
+      setShowMethodForm(false)
+      setSelectedMethod(null)
+      fetchPaymentMethods()
+    } catch (err) {
+      console.error('Erro ao processar sucesso do método de pagamento:', err)
+      setError('Erro ao atualizar lista de métodos de pagamento')
+    }
   }
 
   const handleAddMethod = () => {
@@ -120,7 +140,7 @@ const Payments = () => {
       elo: 'Elo',
       unknown: 'Cartão'
     }
-    return brandNames[brand] || brandNames.unknown
+    return brandNames[brand || 'unknown'] || brandNames.unknown
   }
 
   const getCardBrandLogo = (brand) => {
@@ -152,7 +172,7 @@ const Payments = () => {
       }
     }
     
-    const style = brandStyles[brand] || brandStyles.unknown
+    const style = brandStyles[brand || 'unknown'] || brandStyles.unknown
     
     return (
       <div className={`w-16 h-10 ${style.bg} rounded flex items-center justify-center shadow-sm`}>
@@ -225,6 +245,31 @@ const Payments = () => {
               {[1, 2, 3].map(i => (
                 <div key={i} className="h-24 bg-gray-200 rounded"></div>
               ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-6xl mx-auto px-4">
+          <div className="card p-8">
+            <div className="text-center">
+              <XCircle className="mx-auto text-red-600 mb-4" size={48} />
+              <h2 className="text-2xl font-bold text-gray-900 mb-2">Erro</h2>
+              <p className="text-gray-600 mb-4">{error}</p>
+              <button
+                onClick={() => {
+                  setError(null)
+                  window.location.reload()
+                }}
+                className="btn-primary"
+              >
+                Recarregar Página
+              </button>
             </div>
           </div>
         </div>
@@ -322,9 +367,9 @@ const Payments = () => {
             </div>
           ) : (
             <div className="space-y-3">
-              {paymentMethods.map(method => (
+              {paymentMethods.filter(method => method).map(method => (
                 <div
-                  key={method.id}
+                  key={method.id || Math.random()}
                   className={`border rounded-lg p-4 transition-all ${
                     method.is_default
                       ? 'border-blue-500 bg-blue-50 shadow-sm'
@@ -355,10 +400,10 @@ const Payments = () => {
                           <span className="font-medium">
                             {method.card_type === 'credit_card' ? 'Crédito' : 'Débito'}
                           </span>
-                          <span>•••• {method.last_four_digits}</span>
-                          <span>Validade: {method.expiry_month}/{method.expiry_year.slice(-2)}</span>
+                          <span>•••• {method.last_four_digits || '****'}</span>
+                          <span>Validade: {method.expiry_month || 'MM'}/{method.expiry_year ? String(method.expiry_year).slice(-2) : 'AA'}</span>
                         </div>
-                        <p className="text-sm text-gray-500 mt-1">{method.card_holder}</p>
+                        <p className="text-sm text-gray-500 mt-1">{method.card_holder || 'N/A'}</p>
                       </div>
                     </div>
 
@@ -428,22 +473,27 @@ const Payments = () => {
                   </tr>
                 </thead>
                 <tbody>
-                  {payments.map(payment => (
+                  {payments.map(payment => {
+                    const paymentDate = payment.created_at || payment.criado_em
+                    const dateObj = paymentDate ? new Date(paymentDate) : null
+                    const isValidDate = dateObj && !isNaN(dateObj.getTime())
+                    
+                    return (
                     <tr key={payment.id} className="border-b border-gray-100 hover:bg-gray-50 transition-colors">
                       <td className="py-4 px-4 text-sm text-gray-700">
                         <div className="flex flex-col">
                           <span className="font-medium">
-                            {new Date(payment.criado_em).toLocaleDateString('pt-BR', {
+                            {isValidDate ? dateObj.toLocaleDateString('pt-BR', {
                               day: '2-digit',
                               month: 'short',
                               year: 'numeric'
-                            })}
+                            }) : 'Data não disponível'}
                           </span>
                           <span className="text-xs text-gray-500">
-                            {new Date(payment.criado_em).toLocaleTimeString('pt-BR', {
+                            {isValidDate ? dateObj.toLocaleTimeString('pt-BR', {
                               hour: '2-digit',
                               minute: '2-digit'
-                            })}
+                            }) : ''}
                           </span>
                         </div>
                       </td>
@@ -453,15 +503,16 @@ const Payments = () => {
                             Consulta com {payment.appointment?.psychologist?.user?.nome_completo || 'Psicólogo'}
                           </span>
                           <span className="text-xs text-gray-500 mt-1">
-                            {payment.appointment?.appointment_date && 
-                              new Date(payment.appointment.appointment_date).toLocaleDateString('pt-BR', {
+                            {payment.appointment?.appointment_date && (() => {
+                              const aptDate = new Date(payment.appointment.appointment_date)
+                              return !isNaN(aptDate.getTime()) ? aptDate.toLocaleDateString('pt-BR', {
                                 day: '2-digit',
                                 month: 'long',
                                 year: 'numeric',
                                 hour: '2-digit',
                                 minute: '2-digit'
-                              })
-                            }
+                              }) : ''
+                            })()}
                           </span>
                         </div>
                       </td>
@@ -487,7 +538,8 @@ const Payments = () => {
                         {getStatusBadge(payment.status)}
                       </td>
                     </tr>
-                  ))}
+                    )
+                  })}
                 </tbody>
               </table>
             </div>
