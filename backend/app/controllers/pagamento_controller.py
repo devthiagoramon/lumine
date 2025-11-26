@@ -5,11 +5,11 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List, Optional
 from app import auth
 from app.schemas import PaymentCreate, PaymentResponse
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.appointment import Appointment
-from app.models.payment import Payment
-from app.models.notification import Notification
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.agendamento import Appointment
+from app.models.pagamento import Payment
+from app.models.notificacao import Notification
 import uuid
 import random
 import time

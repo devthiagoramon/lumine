@@ -2,7 +2,7 @@
 Favorite Schemas
 """
 from pydantic import BaseModel
-from app.schemas.psychologist import PsychologistListItem
+from app.schemas.psicologo import PsychologistListItem
 
 class FavoriteResponse(BaseModel):
     psychologist: PsychologistListItem

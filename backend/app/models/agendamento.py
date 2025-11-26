@@ -35,7 +35,7 @@ class Appointment(Base):
         try:
             query = db.query(cls)
             if carregar_relacionamentos:
-                from app.models.psychologist import Psychologist
+                from app.models.psicologo import Psychologist
                 query = query.options(
                     joinedload(cls.psychologist).joinedload(Psychologist.user),
                     joinedload(cls.psychologist).joinedload(Psychologist.specialties),

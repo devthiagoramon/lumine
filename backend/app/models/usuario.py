@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship, Session, joinedload
 from sqlalchemy.sql import func
 from typing import Optional
 from app.database import Base, get_db_session
-from app.models.association_tables import favorites
+from app.models.tabelas_associacao import favorites
 
 class User(Base):
     __tablename__ = "users"
@@ -107,7 +107,7 @@ class User(Base):
     
     def obter_com_favoritos_completo(self):
         """Obter usuário com favoritos e seus relacionamentos completos"""
-        from app.models.psychologist import Psychologist
+        from app.models.psicologo import Psychologist
         db = get_db_session()
         try:
             return db.query(User).options(
@@ -120,7 +120,7 @@ class User(Base):
     
     def adicionar_favorito(self, id_psicologo: int) -> None:
         """Adicionar psicólogo aos favoritos"""
-        from app.models.psychologist import Psychologist
+        from app.models.psicologo import Psychologist
         db = get_db_session()
         try:
             usuario_db = db.query(User).options(
@@ -144,7 +144,7 @@ class User(Base):
     
     def remover_favorito(self, id_psicologo: int) -> None:
         """Remover psicólogo dos favoritos"""
-        from app.models.psychologist import Psychologist
+        from app.models.psicologo import Psychologist
         db = get_db_session()
         try:
             usuario_db = db.query(User).options(

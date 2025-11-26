@@ -36,7 +36,7 @@ class ForumPost(Base):
             
             if post:
                 # Contar comentários
-                from app.models.forum_comment import ForumComment
+                from app.models.comentario_forum import ForumComment
                 comments_count = db.query(func.count(ForumComment.id)).filter(
                     ForumComment.post_id == post.id
                 ).scalar()
@@ -76,7 +76,7 @@ class ForumPost(Base):
             ).limit(tamanho_pagina).all()
             
             # Adicionar contagem de comentários
-            from app.models.forum_comment import ForumComment
+            from app.models.comentario_forum import ForumComment
             for post in posts:
                 comments_count = db.query(func.count(ForumComment.id)).filter(
                     ForumComment.post_id == post.id

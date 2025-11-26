@@ -2,10 +2,10 @@
 Script para verificar e criar psicólogos se necessário
 """
 from app.database import SessionLocal
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.specialty import Specialty
-from app.models.approach import Approach
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.especialidade import Specialty
+from app.models.abordagem import Approach
 from app.auth import get_password_hash
 import random
 

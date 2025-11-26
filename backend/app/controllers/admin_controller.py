@@ -7,14 +7,14 @@ from app import auth
 from app.schemas import (
     PsychologistResponse, ForumPostResponse, PsychologistPreRegistrationResponse
 )
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.forum_post import ForumPost
-from app.models.psychologist_pre_registration import PsychologistPreRegistration
-from app.models.notification import Notification
-from app.models.forum_comment import ForumComment
-from app.models.specialty import Specialty
-from app.models.approach import Approach
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.post_forum import ForumPost
+from app.models.pre_registro_psicologo import PsychologistPreRegistration
+from app.models.notificacao import Notification
+from app.models.comentario_forum import ForumComment
+from app.models.especialidade import Specialty
+from app.models.tratamento import Approach
 import json
 
 router = APIRouter()

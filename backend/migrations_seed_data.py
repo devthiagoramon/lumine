@@ -8,7 +8,7 @@ from app.models import (
     Appointment, ForumPost, ForumComment, EmotionDiary, 
     Payment, PsychologistAvailability
 )
-from app.models.association_tables import favorites
+from app.models.tabelas_associacao import favorites
 from sqlalchemy import func
 from app.auth import get_password_hash
 from datetime import datetime, timedelta

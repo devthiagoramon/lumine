@@ -4,11 +4,11 @@ Payment Method Controller - Endpoints para gerenciar métodos de pagamento salvo
 from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app import auth
-from app.schemas.payment_method import (
+from app.schemas.metodo_pagamento import (
     PaymentMethodCreate, PaymentMethodUpdate, PaymentMethodResponse
 )
-from app.models.user import User
-from app.models.payment_method import PaymentMethod
+from app.models.usuario import User
+from app.models.metodo_pagamento import PaymentMethod
 import re
 
 router = APIRouter()

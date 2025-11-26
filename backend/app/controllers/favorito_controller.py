@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app import auth
 from app.schemas import PsychologistListItem
-from app.models.user import User
-from app.models.psychologist import Psychologist
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
 
 router = APIRouter()
 

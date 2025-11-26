@@ -4,8 +4,8 @@ Appointment Schemas
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from app.schemas.auth import UserResponse
-from app.schemas.psychologist import PsychologistListItem
+from app.schemas.autenticacao import UserResponse
+from app.schemas.psicologo import PsychologistListItem
 
 class AppointmentCreate(BaseModel):
     psychologist_id: int

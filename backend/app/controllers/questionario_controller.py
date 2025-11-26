@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app import auth
 from app.schemas import QuestionnaireCreate, QuestionnaireResponse
-from app.models.user import User
-from app.models.questionnaire import Questionnaire
+from app.models.usuario import User
+from app.models.questionario import Questionnaire
 
 router = APIRouter()
 

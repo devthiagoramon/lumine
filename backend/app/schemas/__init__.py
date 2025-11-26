@@ -1,38 +1,38 @@
 """
 Schemas package - Todos os schemas Pydantic (Views)
 """
-from app.schemas.auth import Token, TokenData, UserLogin, UserCreate, UserResponse
-from app.schemas.specialty import SpecialtyBase, SpecialtyResponse
-from app.schemas.approach import ApproachBase, ApproachResponse
-from app.schemas.psychologist import (
+from app.schemas.autenticacao import Token, TokenData, UserLogin, UserCreate, UserResponse
+from app.schemas.especialidade import SpecialtyBase, SpecialtyResponse
+from app.schemas.abordagem import ApproachBase, ApproachResponse
+from app.schemas.psicologo import (
     PsychologistBase, PsychologistCreate, PsychologistUpdate,
     PsychologistResponse, PsychologistListItem
 )
-from app.schemas.search import SearchFilters, SearchResponse
-from app.schemas.review import ReviewCreate, ReviewResponse
-from app.schemas.appointment import AppointmentCreate, AppointmentUpdate, AppointmentResponse
-from app.schemas.favorite import FavoriteResponse
+from app.schemas.busca import SearchFilters, SearchResponse
+from app.schemas.avaliacao import ReviewCreate, ReviewResponse
+from app.schemas.agendamento import AppointmentCreate, AppointmentUpdate, AppointmentResponse
+from app.schemas.favorito import FavoriteResponse
 from app.schemas.forum import (
     ForumPostCreate, ForumPostUpdate, ForumPostResponse,
     ForumCommentCreate, ForumCommentResponse
 )
-from app.schemas.emotion_diary import (
+from app.schemas.diario_emocional import (
     EmotionDiaryCreate, EmotionDiaryUpdate, EmotionDiaryResponse
 )
-from app.schemas.payment import PaymentCreate, PaymentResponse
-from app.schemas.payment_method import (
+from app.schemas.pagamento import PaymentCreate, PaymentResponse
+from app.schemas.metodo_pagamento import (
     PaymentMethodCreate, PaymentMethodUpdate, PaymentMethodResponse
 )
-from app.schemas.availability import (
+from app.schemas.disponibilidade import (
     PsychologistAvailabilityCreate, PsychologistAvailabilityUpdate,
     PsychologistAvailabilityResponse
 )
-from app.schemas.notification import NotificationResponse, NotificationUpdate
-from app.schemas.questionnaire import QuestionnaireCreate, QuestionnaireResponse
-from app.schemas.pre_registration import (
+from app.schemas.notificacao import NotificationResponse, NotificationUpdate
+from app.schemas.questionario import QuestionnaireCreate, QuestionnaireResponse
+from app.schemas.pre_registro import (
     PsychologistPreRegistrationCreate, PsychologistPreRegistrationResponse
 )
-from app.schemas.withdrawal import WithdrawalCreate, WithdrawalResponse
+from app.schemas.saque import WithdrawalCreate, WithdrawalResponse
 
 __all__ = [
     "Token", "TokenData", "UserLogin", "UserCreate", "UserResponse",

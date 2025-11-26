@@ -8,8 +8,8 @@ from app import auth
 from app.schemas import (
     EmotionDiaryCreate, EmotionDiaryUpdate, EmotionDiaryResponse
 )
-from app.models.user import User
-from app.models.emotion_diary import EmotionDiary
+from app.models.usuario import User
+from app.models.diario_emocional import EmotionDiary
 
 router = APIRouter()
 

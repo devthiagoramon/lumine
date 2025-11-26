@@ -4,9 +4,9 @@ Psychologist Schemas
 from pydantic import BaseModel
 from typing import Optional, List
 from datetime import datetime
-from app.schemas.auth import UserResponse
-from app.schemas.specialty import SpecialtyResponse
-from app.schemas.approach import ApproachResponse
+from app.schemas.autenticacao import UserResponse
+from app.schemas.especialidade import SpecialtyResponse
+from app.schemas.abordagem import ApproachResponse
 
 class PsychologistBase(BaseModel):
     crp: str

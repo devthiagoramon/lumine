@@ -6,7 +6,7 @@ from fastapi.security import OAuth2PasswordRequestForm
 from datetime import timedelta
 from app import auth
 from app.schemas import UserCreate, UserResponse, Token
-from app.models.user import User
+from app.models.usuario import User
 from app.auth import ACCESS_TOKEN_EXPIRE_MINUTES
 
 router = APIRouter()

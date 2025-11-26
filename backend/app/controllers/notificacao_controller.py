@@ -5,8 +5,8 @@ from fastapi import APIRouter, Depends, HTTPException, status, Query
 from typing import List, Optional
 from app import auth
 from app.schemas import NotificationResponse
-from app.models.user import User
-from app.models.notification import Notification
+from app.models.usuario import User
+from app.models.notificacao import Notification
 
 router = APIRouter()
 

@@ -4,7 +4,7 @@ User Controller - Endpoints de usuários
 from fastapi import APIRouter, Depends, HTTPException
 from app import auth
 from app.schemas import UserResponse
-from app.models.user import User
+from app.models.usuario import User
 
 router = APIRouter()
 

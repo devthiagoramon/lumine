@@ -6,10 +6,10 @@ from typing import List, Optional
 from datetime import datetime, timezone
 from app import auth
 from app.schemas import AppointmentCreate, AppointmentUpdate, AppointmentResponse
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.appointment import Appointment
-from app.models.notification import Notification
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.agendamento import Appointment
+from app.models.notificacao import Notification
 
 router = APIRouter()
 

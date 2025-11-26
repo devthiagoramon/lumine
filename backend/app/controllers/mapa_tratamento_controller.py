@@ -3,8 +3,8 @@ Treatment Map Controller - Endpoints de mapa interativo
 """
 from fastapi import APIRouter, Query
 from typing import List, Optional
-from app.schemas.psychologist import PsychologistListItem
-from app.models.psychologist import Psychologist
+from app.schemas.psicologo import PsychologistListItem
+from app.models.psicologo import Psychologist
 from pydantic import BaseModel
 
 router = APIRouter()

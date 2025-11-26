@@ -8,9 +8,9 @@ from app.schemas import (
     ForumPostCreate, ForumPostUpdate, ForumPostResponse,
     ForumCommentCreate, ForumCommentResponse
 )
-from app.models.user import User
-from app.models.forum_post import ForumPost
-from app.models.forum_comment import ForumComment
+from app.models.usuario import User
+from app.models.post_forum import ForumPost
+from app.models.comentario_forum import ForumComment
 from sqlalchemy.orm import joinedload
 
 router = APIRouter()

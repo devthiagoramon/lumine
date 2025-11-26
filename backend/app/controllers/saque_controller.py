@@ -5,10 +5,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app import auth
 from app.schemas import WithdrawalCreate, WithdrawalResponse
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.withdrawal import Withdrawal
-from app.models.notification import Notification
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.saque import Withdrawal
+from app.models.notificacao import Notification
 
 router = APIRouter()
 

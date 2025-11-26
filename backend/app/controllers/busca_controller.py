@@ -4,9 +4,9 @@ Search Controller - Endpoints de busca
 from fastapi import APIRouter, Query
 from typing import List, Optional
 from app.schemas import SearchResponse, SpecialtyResponse, ApproachResponse
-from app.models.specialty import Specialty
-from app.models.approach import Approach
-from app.models.psychologist import Psychologist
+from app.models.especialidade import Specialty
+from app.models.tratamento import Approach
+from app.models.psicologo import Psychologist
 
 router = APIRouter()
 

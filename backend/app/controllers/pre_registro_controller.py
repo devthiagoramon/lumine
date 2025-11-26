@@ -6,8 +6,8 @@ from app import auth
 from app.schemas import (
     PsychologistPreRegistrationCreate, PsychologistPreRegistrationResponse
 )
-from app.models.user import User
-from app.models.psychologist_pre_registration import PsychologistPreRegistration
+from app.models.usuario import User
+from app.models.pre_registro_psicologo import PsychologistPreRegistration
 import json
 
 router = APIRouter()

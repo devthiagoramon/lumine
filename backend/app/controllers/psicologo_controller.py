@@ -7,8 +7,8 @@ from app import auth
 from app.schemas import (
     PsychologistCreate, PsychologistUpdate, PsychologistResponse, PsychologistListItem
 )
-from app.models.user import User
-from app.models.psychologist import Psychologist
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
 
 router = APIRouter()
 

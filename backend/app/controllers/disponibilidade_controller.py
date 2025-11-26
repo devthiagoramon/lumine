@@ -8,10 +8,10 @@ from app.schemas import (
     PsychologistAvailabilityCreate, PsychologistAvailabilityUpdate,
     PsychologistAvailabilityResponse
 )
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.psychologist_availability import PsychologistAvailability
-from app.models.appointment import Appointment
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.disponibilidade_psicologo import PsychologistAvailability
+from app.models.agendamento import Appointment
 from datetime import datetime, date, timedelta, time as dt_time, timezone
 
 router = APIRouter()

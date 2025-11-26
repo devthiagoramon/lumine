@@ -4,7 +4,7 @@ Forum Schemas
 from pydantic import BaseModel
 from typing import Optional
 from datetime import datetime
-from app.schemas.auth import UserResponse
+from app.schemas.autenticacao import UserResponse
 
 class ForumPostCreate(BaseModel):
     title: str

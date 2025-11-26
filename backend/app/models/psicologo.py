@@ -6,7 +6,7 @@ from sqlalchemy.orm import relationship, Session, joinedload
 from sqlalchemy.sql import func
 from typing import Optional, List
 from app.database import Base, get_db_session
-from app.models.association_tables import psychologist_specialties, psychologist_approaches
+from app.models.tabelas_associacao import psychologist_specialties, psychologist_approaches
 
 class Psychologist(Base):
     __tablename__ = "psychologists"
@@ -121,8 +121,8 @@ class Psychologist(Base):
         **kwargs
     ) -> "Psychologist":
         """Criar psicólogo com especialidades e abordagens"""
-        from app.models.specialty import Specialty
-        from app.models.approach import Approach
+        from app.models.especialidade import Specialty
+        from app.models.abordagem import Approach
         
         db = get_db_session()
         try:
@@ -170,8 +170,8 @@ class Psychologist(Base):
         **kwargs
     ) -> "Psychologist":
         """Atualizar psicólogo com especialidades e abordagens"""
-        from app.models.specialty import Specialty
-        from app.models.approach import Approach
+        from app.models.especialidade import Specialty
+        from app.models.abordagem import Approach
         
         db = get_db_session()
         try:
@@ -228,7 +228,7 @@ class Psychologist(Base):
         tamanho_pagina: int = 20
     ) -> dict:
         """Buscar psicólogos com filtros"""
-        from app.models.user import User
+        from app.models.usuario import User
         
         db = get_db_session()
         try:
@@ -266,14 +266,14 @@ class Psychologist(Base):
             
             # Filtro por especialidades
             if ids_especialidades:
-                from app.models.specialty import Specialty
+                from app.models.especialidade import Specialty
                 q = q.join(cls.specialties).filter(
                     Specialty.id.in_(ids_especialidades)
                 )
             
             # Filtro por abordagens
             if ids_abordagens:
-                from app.models.approach import Approach
+                from app.models.abordagem import Approach
                 q = q.join(cls.approaches).filter(
                     Approach.id.in_(ids_abordagens)
                 )
@@ -351,8 +351,8 @@ class Psychologist(Base):
         id_abordagem: Optional[int] = None
     ) -> List["Psychologist"]:
         """Buscar psicólogos para mapa interativo"""
-        from app.models.specialty import Specialty
-        from app.models.approach import Approach
+        from app.models.especialidade import Specialty
+        from app.models.abordagem import Approach
         
         db = get_db_session()
         try:

@@ -5,9 +5,9 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from typing import List
 from app import auth
 from app.schemas import ReviewCreate, ReviewResponse
-from app.models.user import User
-from app.models.psychologist import Psychologist
-from app.models.review import Review
+from app.models.usuario import User
+from app.models.psicologo import Psychologist
+from app.models.avaliacao import Review
 from sqlalchemy.orm import joinedload
 
 router = APIRouter()
@@ -35,7 +35,7 @@ def criar_avaliacao(
         )
     
     # Verificar se o usuário teve pelo menos uma consulta concluída com este psicólogo
-    from app.models.appointment import Appointment
+    from app.models.agendamento import Appointment
     consultas_completadas = Appointment.listar_por_usuario(usuario_atual.id, status='completed')
     consulta_com_psicologo = any(
         apt.psychologist_id == avaliacao.psychologist_id 
